@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Python virtual environments
+venv/
+.venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Frontend build output
+dist/
+build/
+
+# Coverage and test reports
+.coverage
+htmlcov/
+
+# IDE and editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
