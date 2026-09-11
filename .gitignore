@@ -1,9 +1,12 @@
 # Dependencies
 node_modules/
+**/node_modules/
 
 # Python virtual environments
 venv/
+**/venv/
 .venv/
+**/.venv/
 
 # Environment files
 .env
@@ -12,6 +15,7 @@ venv/
 
 # Python cache and compiled files
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
@@ -20,6 +24,7 @@ __pycache__/
 
 # Frontend build output
 dist/
+**/dist/
 build/
 
 # Coverage and test reports
