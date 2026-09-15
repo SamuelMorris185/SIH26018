@@ -45,19 +45,19 @@ export const ReviewWorkspace: React.FC = () => {
   const fetchQueue = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch flagged records or records pending review
-      const res = await recordsApi.listRecords({ limit: 50 });
-      // Filter records that require attention (FLAGGED or PENDING_REVIEW or IN_REVIEW)
-      const pendingRecords = (res.data || []).filter(
-        (r) =>
-          r.status === 'FLAGGED' ||
-          r.review_status === 'PENDING_REVIEW' ||
-          r.review_status === 'IN_REVIEW'
-      );
+      const pendingRecords: LandRecord[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const res = await recordsApi.listRecords({
+          page, limit: 100, review_status: ['PENDING_REVIEW', 'IN_REVIEW'],
+        });
+        pendingRecords.push(...res.data);
+        totalPages = res.total_pages || 1;
+        page += 1;
+      } while (page <= totalPages);
       setQueue(pendingRecords);
-      if (pendingRecords.length > 0 && !selectedRecord) {
-        selectRecord(pendingRecords[0]);
-      }
+      setSelectedRecord((previous) => pendingRecords.find((r) => r.id === previous?.id) || pendingRecords[0] || null);
     } catch (err: any) {
       toastError(err?.message || 'Failed to load review queue');
     } finally {
@@ -65,18 +65,19 @@ export const ReviewWorkspace: React.FC = () => {
     }
   }, [toastError]);
 
-  const selectRecord = async (record: LandRecord) => {
-    setSelectedRecord(record);
+  const selectRecord = (record: LandRecord) => setSelectedRecord(record);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDiscrepancies([]);
+    if (!selectedRecord) return;
     setDetailLoading(true);
-    try {
-      const discList = await discrepanciesApi.getRecordDiscrepancies(record.id);
-      setDiscrepancies(discList);
-    } catch {
-      setDiscrepancies([]);
-    } finally {
-      setDetailLoading(false);
-    }
-  };
+    discrepanciesApi.getRecordDiscrepancies(selectedRecord.id)
+      .then((items) => { if (!cancelled) setDiscrepancies(items); })
+      .catch((err) => { if (!cancelled) toastError(err.message || 'Failed to load discrepancies'); })
+      .finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedRecord?.id, toastError]);
 
   useEffect(() => {
     fetchQueue();
@@ -201,7 +202,7 @@ export const ReviewWorkspace: React.FC = () => {
               <CheckSquare size={32} color="#10b981" style={{ margin: '0 auto 0.5rem auto' }} />
               <div style={{ fontWeight: 600, color: '#f8fafc' }}>Review Queue Empty</div>
               <div style={{ fontSize: '0.78rem', marginTop: '2px' }}>
-                All ingested land records are validated or clear of discrepancies.
+                No records are currently awaiting a review decision.
               </div>
             </div>
           ) : (

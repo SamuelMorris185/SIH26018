@@ -1,24 +1,26 @@
 import uuid
 from typing import Optional, List
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import AuthenticationError, ForbiddenError
+from app.core.exceptions import AuthenticationError, ForbiddenError, UserNotFoundError
 from app.core.security import decode_access_token
 from app.db.session import get_db_session
 from app.models.user import UserModel
 from app.schemas.user import UserRole
 from app.services.user_service import user_service
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login",
-    auto_error=False
-)
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_bearer_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)):
+    # Login is a JSON endpoint, not an OAuth2 password-form endpoint.
+    return credentials.credentials if credentials else None
 
 async def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(get_bearer_token),
     session: AsyncSession = Depends(get_db_session)
 ) -> UserModel:
     """
@@ -38,14 +40,17 @@ async def get_current_user(
     except ValueError:
         raise AuthenticationError("Invalid token user identifier.")
 
-    user = await user_service.get_by_id(session, user_uuid)
+    try:
+        user = await user_service.get_by_id(session, user_uuid)
+    except UserNotFoundError:
+        raise AuthenticationError("Invalid token user identifier.")
     if not user.is_active:
         raise AuthenticationError("User account is deactivated.")
 
     return user
 
 async def get_optional_current_user(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(get_bearer_token),
     session: AsyncSession = Depends(get_db_session)
 ) -> Optional[UserModel]:
     """

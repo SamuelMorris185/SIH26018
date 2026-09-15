@@ -6,6 +6,7 @@ from sqlalchemy import select, func, asc, desc
 from app.core.logging import logger
 from app.models.land_record import LandRecordModel
 from app.schemas.record import LandRecordResponse, LandRecordPaginatedList
+from app.services.land_record_service import land_record_service
 
 class SearchService:
     """
@@ -38,13 +39,17 @@ class SearchService:
         sort_by: str = "created_at",
         sort_order: str = "desc",
         page: int = 1,
-        limit: int = 20
+        limit: int = 20,
+        current_user=None,
+        review_status: Optional[List[str]] = None,
     ) -> LandRecordPaginatedList:
         """
         Executes multi-criteria filtered search with SQL-level pagination and ordering.
         """
         # Build base filter conditions
-        conditions = []
+        conditions = [land_record_service.access_condition(current_user)]
+        if review_status:
+            conditions.append(LandRecordModel.review_status.in_(review_status))
 
         if state:
             conditions.append(func.lower(LandRecordModel.state) == state.strip().lower())

@@ -24,6 +24,8 @@ from app.schemas.record import (
 from app.schemas.validation import ValidationCheckResponse
 from app.schemas.extraction import ExtractionResultResponse
 from app.schemas.discrepancy import DiscrepancyResponse
+from app.core.exceptions import ForbiddenError, InvalidStateTransitionError
+from app.services.document_service import document_service
 from app.api.dependencies.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/records", tags=["Land Records"])
@@ -35,6 +37,7 @@ async def list_land_records(
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by status (EXTRACTED, NORMALIZED, VALIDATED, FLAGGED, REJECTED)"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    review_status: Optional[List[str]] = Query(None),
     current_user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session)
 ):
@@ -43,6 +46,8 @@ async def list_land_records(
     """
     return await search_service.search_records(
         session=session,
+        current_user=current_user,
+        review_status=review_status,
         state=state,
         district=district,
         status=status_filter,
@@ -59,7 +64,7 @@ async def get_land_record(
     """
     Fetch a single land record by ID with its latest validation check report and detected discrepancies.
     """
-    record = await land_record_service.get_record(session, record_id)
+    record = await land_record_service.get_record(session, record_id, current_user)
     validations = await validation_service.get_validation_history(record_id, session)
     discrepancies = await comparison_service.get_record_discrepancies(session, record_id)
 
@@ -92,7 +97,7 @@ async def get_record_extraction(
     """
     Retrieve structured OCR extraction results and field-level evidence for a land record.
     """
-    record = await land_record_service.get_record(session, record_id)
+    record = await land_record_service.get_record(session, record_id, current_user)
     if not record.document_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -123,8 +128,14 @@ async def create_land_record(
     """
     Manually create a new land record entry. Requires ADMIN or OPERATOR role.
     """
-    if payload.created_by is None:
-        payload.created_by = current_user.id
+    if payload.created_by is not None and payload.created_by != current_user.id:
+        raise ForbiddenError("Record creator must be the authenticated user.")
+    if payload.review_status not in {None, "PENDING_REVIEW"}:
+        raise ForbiddenError("Review decisions must use the review endpoints.")
+    payload.created_by = current_user.id
+    if payload.document_id:
+        doc = await document_service.get_document(session, payload.document_id)
+        document_service.check_document_access(doc, current_user)
     record = await land_record_service.create_record(session, payload)
     
     await audit_service.log_event(
@@ -148,6 +159,11 @@ async def update_land_record(
     """
     Update land record fields or modify validation status.
     """
+    record = await land_record_service.get_record(session, record_id, current_user)
+    if "review_status" in payload.model_fields_set and payload.review_status != record.review_status:
+        raise ForbiddenError("Review decisions must use the review endpoints.")
+    if record.review_status in {"APPROVED", "REJECTED"}:
+        raise InvalidStateTransitionError(record.review_status, "EDIT", "LandRecordReview")
     record = await land_record_service.update_record(session, record_id, payload)
     
     await audit_service.log_event(
@@ -170,7 +186,7 @@ async def get_latest_record_validation(
     """
     Retrieve the latest validation result report for a specific land record.
     """
-    await land_record_service.get_record(session, record_id)
+    await land_record_service.get_record(session, record_id, current_user)
     history = await validation_service.get_validation_history(record_id, session)
     if not history:
         raise HTTPException(
@@ -196,7 +212,7 @@ async def trigger_record_validation(
     """
     Triggers manual re-validation of an existing land record and persists the audit.
     """
-    record = await land_record_service.get_record(session, record_id)
+    record = await land_record_service.get_record(session, record_id, current_user)
     record_dict = {
         "state": record.state,
         "district": record.district,
@@ -231,7 +247,7 @@ async def get_record_validations(
     """
     Retrieve complete historical validation audit trail for a specific land record.
     """
-    await land_record_service.get_record(session, record_id)
+    await land_record_service.get_record(session, record_id, current_user)
     history = await validation_service.get_validation_history(record_id, session)
     return [
         ValidationCheckResponse(

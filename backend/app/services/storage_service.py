@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Tuple
 import anyio
-from app.core.config import settings
+from app.core.config import BACKEND_DIR, settings
 from app.core.logging import logger
 from app.core.exceptions import MissingFileError
 
@@ -58,7 +58,8 @@ class LocalStorageService(BaseStorageService):
     """
 
     def __init__(self, base_dir: Optional[str] = None):
-        self.base_dir = Path(base_dir or settings.UPLOAD_DIR).resolve()
+        configured_dir = Path(base_dir or settings.UPLOAD_DIR)
+        self.base_dir = (configured_dir if configured_dir.is_absolute() else BACKEND_DIR / configured_dir).resolve()
         self._ensure_storage_dir()
 
     def _ensure_storage_dir(self):

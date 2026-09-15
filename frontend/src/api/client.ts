@@ -12,6 +12,7 @@ export class ApiError extends Error {
 }
 
 const TOKEN_STORAGE_KEY = 'sih_auth_token';
+export const AUTH_CLEARED_EVENT = 'sih-auth-cleared';
 
 export const authStorage = {
   getToken: (): string | null => {
@@ -22,11 +23,12 @@ export const authStorage = {
   },
   clearToken: (): void => {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.dispatchEvent(new Event(AUTH_CLEARED_EVENT));
   },
 };
 
 const getBaseUrl = (): string => {
-  return env.API_BASE_URL || '';
+  return (env.API_BASE_URL || '').replace(/\/+$/, '');
 };
 
 const buildUrl = (endpoint: string, params?: Record<string, any>): string => {
@@ -38,7 +40,8 @@ const buildUrl = (endpoint: string, params?: Record<string, any>): string => {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
-        query.append(key, String(value));
+        if (Array.isArray(value)) value.forEach((item) => query.append(key, String(item)));
+        else query.append(key, String(value));
       }
     });
     const queryString = query.toString();
@@ -106,6 +109,11 @@ const getHeaders = (customHeaders: Record<string, string> = {}): Record<string, 
 };
 
 export const apiClient = {
+  async getBlob(endpoint: string): Promise<{ blob: Blob; headers: Headers }> {
+    const response = await fetch(buildUrl(endpoint), { headers: getHeaders() });
+    if (!response.ok) await handleResponse<never>(response);
+    return { blob: await response.blob(), headers: response.headers };
+  },
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     const url = buildUrl(endpoint, params);
     const response = await fetch(url, {

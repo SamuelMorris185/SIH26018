@@ -3,6 +3,9 @@ from datetime import datetime
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import selectinload
+from app.models.document import DocumentModel
 
 from app.core.logging import logger
 from app.core.exceptions import RecordNotFoundError, InvalidStateTransitionError, ForbiddenError
@@ -22,6 +25,18 @@ class LandRecordService:
         "REJECTED": {"NORMALIZED", "FLAGGED"}
     }
 
+    @staticmethod
+    def access_condition(user):
+        """SQL equivalent of operator record and source-document ownership checks."""
+        if user is None or user.role != "OPERATOR":
+            return True
+        return and_(
+            or_(LandRecordModel.created_by.is_(None), LandRecordModel.created_by == user.id),
+            ~LandRecordModel.document.has(and_(
+                DocumentModel.created_by.isnot(None), DocumentModel.created_by != user.id
+            )),
+        )
+
     def check_record_access(self, record: LandRecordModel, user: Optional[Any] = None) -> None:
         """
         Enforces resource-level ownership and RBAC.
@@ -32,7 +47,7 @@ class LandRecordService:
             return
         user_role = getattr(user, "role", None)
         user_id = getattr(user, "id", None)
-        role_str = str(user_role).upper()
+        role_str = getattr(user_role, "value", user_role)
 
         if role_str == "OPERATOR":
             if record.created_by is not None and record.created_by != user_id:
@@ -79,15 +94,18 @@ class LandRecordService:
     async def get_record(
         self,
         session: AsyncSession,
-        record_id: uuid.UUID
+        record_id: uuid.UUID,
+        current_user=None,
     ) -> LandRecordModel:
         """Fetches single land record or raises RecordNotFoundError."""
         result = await session.execute(
             select(LandRecordModel).where(LandRecordModel.id == record_id)
+            .options(selectinload(LandRecordModel.document))
         )
         record = result.scalars().first()
         if not record:
             raise RecordNotFoundError(record_id)
+        self.check_record_access(record, current_user)
         return record
 
     async def update_record(

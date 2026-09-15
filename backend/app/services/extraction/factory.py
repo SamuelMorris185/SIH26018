@@ -1,6 +1,7 @@
 from typing import Optional
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.exceptions import OCREngineUnavailableError
 from app.services.extraction.provider import BaseExtractionProvider, MockExtractionProvider
 from app.services.extraction.tesseract_provider import TesseractOCRProvider
 
@@ -17,5 +18,4 @@ def get_extraction_provider(engine_name: Optional[str] = None) -> BaseExtraction
     elif selected == "MOCK":
         return MockExtractionProvider()
     else:
-        logger.warning(f"[OCR_FACTORY] Unknown OCR engine '{selected}'. Falling back to MockExtractionProvider.")
-        return MockExtractionProvider()
+        raise OCREngineUnavailableError(selected, "Unknown OCR_ENGINE; use MOCK or TESSERACT.")

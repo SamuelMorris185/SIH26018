@@ -1,4 +1,4 @@
-import { apiClient, authStorage } from './client';
+import { apiClient } from './client';
 import {
   LandRecordDetail,
   LandRecordPaginatedList,
@@ -14,6 +14,7 @@ export interface RecordFilterParams {
   khasra_number?: string;
   khata_number?: string;
   status?: string;
+  review_status?: string[];
   min_area?: number;
   max_area?: number;
   sort_by?: string;
@@ -30,8 +31,8 @@ export const recordsApi = {
       params?.village ||
       params?.khasra_number ||
       params?.khata_number ||
-      params?.min_area ||
-      params?.max_area ||
+      params?.min_area !== undefined ||
+      params?.max_area !== undefined ||
       params?.sort_by;
 
     const endpoint = hasSearchFilters ? '/api/v1/search' : '/api/v1/records';
@@ -55,30 +56,9 @@ export const recordsApi = {
   },
 
   async downloadVerificationReport(recordId: string): Promise<{ blob: Blob; filename: string }> {
-    const url = apiClient.getStreamUrl(`/api/v1/records/${recordId}/verification-report`);
-    const token = authStorage.getToken();
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      let errMsg = `Failed to generate verification report (HTTP ${response.status})`;
-      try {
-        const errJson = await response.json();
-        if (errJson?.detail || errJson?.message) {
-          errMsg = errJson.detail || errJson.message;
-        }
-      } catch {
-        // use default message
-      }
-      throw new Error(errMsg);
-    }
-
-    const blob = await response.blob();
+    const { blob, headers } = await apiClient.getBlob(`/api/v1/records/${recordId}/verification-report`);
     let filename = `verification_report_${recordId}.pdf`;
-    const disposition = response.headers.get('content-disposition');
+    const disposition = headers.get('content-disposition');
     if (disposition && disposition.includes('filename=')) {
       const match = disposition.match(/filename="?([^"]+)"?/);
       if (match && match[1]) {

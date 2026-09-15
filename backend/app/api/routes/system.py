@@ -9,6 +9,8 @@ from app.models.discrepancy import DiscrepancyModel
 from app.schemas.health import OCRStatusResponse, DashboardStatsResponse
 from app.services.extraction.factory import get_extraction_provider
 from app.services.extraction.tesseract_provider import TesseractOCRProvider
+from app.api.dependencies.auth import get_current_user
+from app.models.user import UserModel
 
 router = APIRouter(prefix="/system", tags=["System & OCR Diagnostics"])
 
@@ -45,7 +47,7 @@ async def get_ocr_status():
     )
 
 @router.get("/dashboard-stats", response_model=DashboardStatsResponse)
-async def get_dashboard_stats(session: AsyncSession = Depends(get_db_session)):
+async def get_dashboard_stats(session: AsyncSession = Depends(get_db_session), current_user: UserModel = Depends(get_current_user)):
     """
     Returns live aggregated system statistics across land records, processed documents,
     review queues, and discrepancies directly from database counts.
@@ -56,7 +58,7 @@ async def get_dashboard_stats(session: AsyncSession = Depends(get_db_session)):
 
     # Documents processed
     res_docs = await session.execute(
-        select(func.count(DocumentModel.id)).where(DocumentModel.status != "FAILED")
+        select(func.count(DocumentModel.id)).where(DocumentModel.status.in_(["VALIDATED", "FLAGGED"]))
     )
     docs_processed = res_docs.scalar_one() or 0
 
@@ -115,4 +117,3 @@ async def get_dashboard_stats(session: AsyncSession = Depends(get_db_session)):
         approved_records=approved_records,
         rejected_records=rejected_records,
     )
-

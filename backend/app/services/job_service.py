@@ -14,6 +14,7 @@ from app.core.exceptions import (
     ForbiddenError,
 )
 from app.models.job import JobModel
+from app.services.document_service import document_service
 from app.models.user import UserModel
 from app.schemas.user import UserRole
 from app.schemas.job import JobResponse
@@ -102,7 +103,7 @@ class JobService:
         """
         query = select(JobModel).where(
             JobModel.document_id == document_id,
-            JobModel.status.in_(["QUEUED", "PROCESSING"])
+            JobModel.status.in_(["QUEUED", "PROCESSING", "RETRYING"])
         ).order_by(desc(JobModel.created_at)).limit(1)
         result = await session.execute(query)
         return result.scalar_one_or_none()
@@ -117,6 +118,7 @@ class JobService:
         Creates a new persistent processing job in QUEUED status.
         Guarantees concurrency prevention by rejecting duplicate active jobs.
         """
+        await document_service.get_document(session, document_id, lock=True)
         active_job = await self.check_active_job(session, document_id)
         if active_job:
             logger.warning(f"Rejected duplicate job for document {document_id}: already active job {active_job.id}")
@@ -197,6 +199,8 @@ class JobService:
         """
         job = await self.get_job(session, job_id)
         self.check_job_access(job, current_user)
+        await document_service.get_document(session, job.document_id, lock=True)
+        await session.refresh(job)
 
         if job.status != "FAILED":
             raise JobNotRetryableError(
@@ -238,8 +242,7 @@ class JobService:
         )
         logger.info(f"Retrying job {job.id} (attempt {job.retry_count}/{job.max_retries})")
 
-        # Dispatch background worker task
-        self.dispatch_job(job.id)
+        # The caller dispatches only after committing the queued state.
         return job
 
     def dispatch_job(self, job_id: uuid.UUID) -> asyncio.Task:
@@ -290,7 +293,7 @@ class JobService:
                 await session.commit()
 
                 # Execute core pipeline
-                pipeline_result = await digitization_service.execute_pipeline(session, doc_id)
+                pipeline_result = await digitization_service.execute_pipeline(session, doc_id, job_id=job_id)
 
                 # Job Completed successfully
                 job.status = "COMPLETED"
@@ -328,6 +331,8 @@ class JobService:
                 sanitized_msg = sanitize_error_message(str(exc))
                 logger.error(f"Background job {job.id} failed [{cat}]: {sanitized_msg}")
 
+                await session.rollback()
+                job = await self.get_job(session, job_id)
                 job.status = "FAILED"
                 job.current_stage = "FAILED"
                 job.error_category = cat

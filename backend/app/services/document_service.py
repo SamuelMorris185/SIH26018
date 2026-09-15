@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -118,9 +118,12 @@ class DocumentService:
 
         return doc
 
-    async def get_document(self, session: AsyncSession, document_id: uuid.UUID) -> DocumentModel:
+    async def get_document(self, session: AsyncSession, document_id: uuid.UUID, lock: bool = False) -> DocumentModel:
         """Fetches document by ID or raises DocumentNotFoundError."""
-        result = await session.execute(select(DocumentModel).where(DocumentModel.id == document_id))
+        query = select(DocumentModel).where(DocumentModel.id == document_id)
+        if lock:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        result = await session.execute(query)
         doc = result.scalars().first()
         if not doc:
             raise DocumentNotFoundError(document_id)
@@ -132,7 +135,8 @@ class DocumentService:
         status_filter: Optional[str] = None,
         doc_type_filter: Optional[str] = None,
         page: int = 1,
-        limit: int = 20
+        limit: int = 20,
+        current_user=None,
     ) -> Tuple[int, List[DocumentModel]]:
         """Retrieves paginated documents with optional status and doc_type filters."""
         query = select(DocumentModel)
@@ -143,6 +147,10 @@ class DocumentService:
             query = query.where(DocumentModel.doc_type == doc_type_filter.upper())
 
         count_query = select(func.count(DocumentModel.id))
+        if current_user is not None and current_user.role == "OPERATOR":
+            ownership = or_(DocumentModel.created_by.is_(None), DocumentModel.created_by == current_user.id)
+            query = query.where(ownership)
+            count_query = count_query.where(ownership)
         if status_filter:
             count_query = count_query.where(DocumentModel.status == status_filter.upper())
         if doc_type_filter:

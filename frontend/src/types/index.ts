@@ -10,7 +10,7 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 export interface TokenResponse {
@@ -27,11 +27,11 @@ export interface Document {
   file_size_bytes: number;
   doc_type: string;
   status: 'UPLOADED' | 'PROCESSING' | 'EXTRACTED' | 'NORMALIZED' | 'VALIDATED' | 'FLAGGED' | 'FAILED';
-  storage_key?: string;
-  created_by?: string;
-  metadata_json?: Record<string, any>;
+  storage_key?: string | null;
+  created_by?: string | null;
+  metadata_json?: Record<string, any> | null;
   uploaded_at: string;
-  processed_at?: string;
+  processed_at?: string | null;
 }
 
 export interface DocumentPaginatedList {
@@ -50,17 +50,17 @@ export interface FieldExtractionEvidence {
   confidence: number;
   category: ConfidenceCategory;
   source: string;
-  evidence?: string;
+  evidence?: string | null;
 }
 
 export interface ExtractionResult {
   id: string;
   document_id: string;
   provider: string;
-  raw_text?: string;
+  raw_text?: string | null;
   extracted_fields: Record<string, any>;
-  field_confidences?: Record<string, number>;
-  structured_fields?: Record<string, FieldExtractionEvidence>;
+  field_confidences?: Record<string, number> | null;
+  structured_fields?: Record<string, FieldExtractionEvidence> | null;
   confidence_score: number;
   confidence_category: ConfidenceCategory;
   low_confidence_fields: string[];
@@ -80,8 +80,8 @@ export interface ValidationCheck {
   is_valid: boolean;
   status: string;
   rule_results: RuleValidationResult[];
-  discrepancy_summary?: string;
-  validated_at?: string;
+  discrepancy_summary?: string | null;
+  validated_at?: string | null;
 }
 
 export type DiscrepancyType =
@@ -103,14 +103,14 @@ export type DiscrepancyStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSE
 export interface Discrepancy {
   id: string;
   record_id: string;
-  compared_record_id?: string;
-  comparison_id?: string;
+  compared_record_id?: string | null;
+  comparison_id?: string | null;
   discrepancy_type: DiscrepancyType | string;
   severity: DiscrepancySeverity | string;
   description: string;
-  field_name?: string;
-  source_value?: string;
-  conflicting_value?: string;
+  field_name?: string | null;
+  source_value?: string | null;
+  conflicting_value?: string | null;
   confidence: number;
   status: DiscrepancyStatus | string;
   created_at: string;
@@ -133,7 +133,7 @@ export interface ComparisonSummary {
   medium_count: number;
   low_count: number;
   info_count: number;
-  highest_severity?: string;
+  highest_severity?: string | null;
   discrepancies: Discrepancy[];
 }
 
@@ -143,7 +143,7 @@ export interface RecordComparison {
   compared_record_id: string;
   match_type: string;
   discrepancy_count: number;
-  highest_severity?: string;
+  highest_severity?: string | null;
   status: string;
   compared_at: string;
   discrepancies: Discrepancy[];
@@ -161,8 +161,8 @@ export type ReviewStatus =
 
 export interface LandRecord {
   id: string;
-  document_id?: string;
-  created_by?: string;
+  document_id?: string | null;
+  created_by?: string | null;
   state: string;
   district: string;
   tehsil: string;
@@ -170,57 +170,57 @@ export interface LandRecord {
   khasra_number: string;
   khata_number: string;
   area_in_hectares: number;
-  land_classification?: string;
-  owner_name?: string;
-  co_owners?: string[];
-  patta_number?: string;
-  registration_number?: string;
-  mutation_number?: string;
-  document_date?: string;
+  land_classification?: string | null;
+  owner_name?: string | null;
+  co_owners?: string[] | null;
+  patta_number?: string | null;
+  registration_number?: string | null;
+  mutation_number?: string | null;
+  document_date?: string | null;
   confidence_score: number;
   status: RecordStatus | string;
   review_status: ReviewStatus | string;
-  reviewed_by?: string;
-  reviewed_at?: string;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
 }
 
 export interface LandRecordDetail extends LandRecord {
-  latest_validation?: ValidationCheck;
-  discrepancies?: Discrepancy[];
+  latest_validation?: ValidationCheck | null;
+  discrepancies?: Discrepancy[] | null;
 }
 
 export interface LandRecordPaginatedList {
   total: number;
   page: number;
   limit: number;
-  total_pages?: number;
+  total_pages?: number | null;
   data: LandRecord[];
 }
 
 export interface ReviewDetail {
   record_id: string;
   review_status: ReviewStatus;
-  reviewed_by?: string;
-  reviewed_at?: string;
-  review_notes?: string;
-  rejection_reason?: string;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  rejection_reason?: string | null;
   land_record_status: string;
   updated_at: string;
 }
 
 export interface AuditLog {
   id: string;
-  actor_user_id?: string;
+  actor_user_id?: string | null;
   action: string;
   entity_type: string;
-  entity_id?: string;
-  previous_state?: Record<string, any>;
-  new_state?: Record<string, any>;
-  metadata_json?: Record<string, any>;
-  ip_address?: string;
-  user_agent?: string;
+  entity_id?: string | null;
+  previous_state?: Record<string, any> | null;
+  new_state?: Record<string, any> | null;
+  metadata_json?: Record<string, any> | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
   created_at: string;
 }
 
@@ -235,7 +235,7 @@ export interface OCRStatus {
   selected_engine: string;
   available: boolean;
   provider_name: string;
-  engine_version?: string;
+  engine_version?: string | null;
   supported_languages: string[];
   offline_operational: boolean;
 }
@@ -267,7 +267,7 @@ export interface DigitizationPipelineResult {
   extraction: ExtractionResult;
   records: LandRecord[];
   validations: ValidationCheck[];
-  discrepancies?: ComparisonSummary;
+  discrepancies?: ComparisonSummary | null;
   summary: string;
 }
 
@@ -291,15 +291,15 @@ export interface CadastralMapRecord {
   tehsil: string;
   village: string;
   area_in_hectares: number;
-  land_classification?: string;
+  land_classification?: string | null;
   status: string;
   review_status: string;
   confidence_score: number;
   has_discrepancies: boolean;
   discrepancy_count: number;
-  latitude?: number;
-  longitude?: number;
-  boundary_geojson?: Record<string, any>;
+  latitude?: number | null;
+  longitude?: number | null;
+  boundary_geojson?: Record<string, any> | null;
   geometry_validation_status: string;
   map_source: string;
 }
@@ -311,8 +311,8 @@ export interface CadastralMapResponse {
 
 export interface GeometryValidationResponse {
   is_valid: boolean;
-  geometry_type?: string;
-  vertex_count?: number;
+  geometry_type?: string | null;
+  vertex_count?: number | null;
   coordinate_reference_system: string;
   errors: string[];
   warnings: string[];
@@ -324,19 +324,19 @@ export type JobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'RETR
 export interface Job {
   id: string;
   document_id: string;
-  created_by?: string;
+  created_by?: string | null;
   status: JobStatus;
   current_stage: string;
   progress_percentage: number;
-  error_category?: string;
-  error_message?: string;
+  error_category?: string | null;
+  error_message?: string | null;
   retry_count: number;
   max_retries: number;
   created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  result_summary?: Record<string, any>;
-  metadata_json?: Record<string, any>;
+  started_at?: string | null;
+  completed_at?: string | null;
+  result_summary?: Record<string, any> | null;
+  metadata_json?: Record<string, any> | null;
 }
 
 export interface JobPaginatedList {

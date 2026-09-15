@@ -1,11 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.schemas.validation import ValidationCheckResponse
 from app.schemas.discrepancy import DiscrepancyResponse
 
 class LandRecordBase(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    @field_validator("document_date")
+    @classmethod
+    def normalize_document_date(cls, value):
+        if value is not None and value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
     state: str = Field(..., json_schema_extra={"example": "Madhya Pradesh"})
     district: str = Field(..., json_schema_extra={"example": "Bhopal"})
     tehsil: str = Field(..., json_schema_extra={"example": "Huzur"})
@@ -31,6 +39,19 @@ class LandRecordCreate(LandRecordBase):
     review_status: Optional[str] = Field(default="PENDING_REVIEW")
 
 class LandRecordUpdate(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    @field_validator("state", "district", "tehsil", "village", "khasra_number", "khata_number", "area_in_hectares", "status", "review_status")
+    @classmethod
+    def reject_null_required_fields(cls, value):
+        if value is None:
+            raise ValueError("This field cannot be null")
+        return value
+
+    @field_validator("document_date")
+    @classmethod
+    def normalize_document_date(cls, value):
+        return LandRecordBase.normalize_document_date(value)
     state: Optional[str] = None
     district: Optional[str] = None
     tehsil: Optional[str] = None

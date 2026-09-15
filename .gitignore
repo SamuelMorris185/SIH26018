@@ -41,3 +41,7 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Runtime document storage (fixtures belong under backend/tests/fixtures)
+uploads/
+backend/uploads/

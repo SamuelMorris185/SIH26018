@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.logging import logger
 from app.core.config import settings
-from app.core.exceptions import RecordNotFoundError, DiscrepancyNotFoundError, InvalidStateTransitionError
+from app.core.exceptions import RecordNotFoundError, DiscrepancyNotFoundError, InvalidStateTransitionError, DomainException
 from app.models.land_record import LandRecordModel
 from app.models.discrepancy import RecordComparisonModel, DiscrepancyModel
 from app.schemas.discrepancy import (
@@ -28,6 +28,14 @@ class ComparisonService:
     Matches land records by parcel identity (Khasra, Khata, Village, District, State)
     and flags discrepancies (owner, area, survey, duplicate, sequence, low-confidence).
     """
+
+    async def ensure_comparison_replaceable(self, session, record_id):
+        reviewed = await session.execute(select(DiscrepancyModel.id).where(
+            DiscrepancyModel.record_id == record_id,
+            DiscrepancyModel.status != "OPEN",
+        ).limit(1))
+        if reviewed.scalar_one_or_none() is not None:
+            raise DomainException("Comparison cannot replace discrepancies with recorded review decisions.", 409)
 
     @staticmethod
     def _name_similarity(name1: Optional[str], name2: Optional[str]) -> float:
@@ -245,6 +253,10 @@ class ComparisonService:
         record = result.scalars().first()
         if not record:
             raise RecordNotFoundError(record_id)
+
+        if record.review_status in {"APPROVED", "REJECTED"}:
+            raise InvalidStateTransitionError(record.review_status, "COMPARE", "LandRecordReview")
+        await self.ensure_comparison_replaceable(session, record_id)
 
         logger.info(f"[COMPARISON] Running discrepancy comparison for Record {record.id} (Khasra: {record.khasra_number}, Village: {record.village})")
 

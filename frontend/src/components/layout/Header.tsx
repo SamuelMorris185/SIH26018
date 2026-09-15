@@ -96,7 +96,7 @@ export const Header: React.FC = () => {
             </span>
           </div>
           <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-            National Land Record Digitization, Real Tesseract OCR & Validation Gateway
+            Land Record Digitization, OCR & Validation Gateway
           </p>
         </div>
       </div>
@@ -118,7 +118,7 @@ export const Header: React.FC = () => {
           }}
         >
           <Cpu size={14} color="#10b981" />
-          <span>Tesseract v5.5 + FastAPI</span>
+          <span>SIH26018 Demo</span>
           <span
             style={{
               width: 7,

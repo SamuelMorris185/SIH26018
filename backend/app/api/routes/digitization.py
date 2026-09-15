@@ -1,4 +1,5 @@
 import uuid
+from app.core.config import settings
 from fastapi import APIRouter, Depends, UploadFile, File, Form, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,7 +62,7 @@ async def upload_and_process_document(
     Convenience endpoint: uploads physical document binary and executes pipeline.
     Requires ADMIN or OPERATOR role. Assigns ownership to current user.
     """
-    content = await file.read()
+    content = await file.read(settings.MAX_UPLOAD_SIZE_BYTES + 1)
     mime_type = file.content_type or "application/octet-stream"
     
     # Register document with creator identity

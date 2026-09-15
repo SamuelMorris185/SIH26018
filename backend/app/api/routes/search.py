@@ -36,6 +36,7 @@ async def search_land_records(
     """
     return await search_service.search_records(
         session=session,
+        current_user=current_user,
         state=state,
         district=district,
         tehsil=tehsil,

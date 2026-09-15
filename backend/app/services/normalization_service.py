@@ -1,4 +1,5 @@
 import re
+import math
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from app.core.logging import logger
@@ -126,17 +127,20 @@ class NormalizationService:
         if value is None:
             return 0.0
         if isinstance(value, (int, float)):
-            return round(float(value), 4)
+            return round(float(value), 4) if math.isfinite(value) else 0.0
         
         # If string, extract numeric component
         text = str(value).lower().strip()
-        # Remove common unit labels
-        text = re.sub(r"(ha|hectares?|sq\.?m?|acres?|bigha)", "", text).strip()
+        # Bigha varies by region; never silently treat it as hectares.
+        if "bigha" in text:
+            return 0.0
+        factor = 0.40468564224 if "acre" in text else (0.0001 if re.search(r"sq\.?\s*m|m²|square\s*met", text) else 1.0)
+        text = text.replace(",", "")
         match = re.search(r"[-+]?\d*\.?\d+", text)
         if match:
             try:
                 parsed = float(match.group(0))
-                return round(parsed, 4)
+                return round(parsed * factor, 4)
             except ValueError:
                 return 0.0
         return 0.0

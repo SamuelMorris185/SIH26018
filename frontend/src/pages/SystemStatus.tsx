@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Server,
 } from 'lucide-react';
+import { env } from '../config/env';
 import { systemApi } from '../api/system';
 import { HealthStatus, OCRStatus } from '../types';
 
@@ -156,7 +157,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Configured Engine</span>
               <span style={{ fontWeight: 700, color: '#38bdf8' }}>
-                {ocrStatus?.selected_engine || 'TESSERACT'}
+                {ocrStatus?.selected_engine || 'Unavailable'}
               </span>
             </div>
 
@@ -172,7 +173,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Active Provider ID</span>
               <span style={{ fontWeight: 600, color: '#f1f5f9' }}>
-                {ocrStatus?.provider_name || 'TESSERACT_OCR_V1'}
+                {ocrStatus?.provider_name || 'Unavailable'}
               </span>
             </div>
 
@@ -188,7 +189,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Native Engine Version</span>
               <span style={{ fontWeight: 600, color: '#f1f5f9', fontFamily: 'monospace' }}>
-                {ocrStatus?.engine_version || 'v5.5.3 (Scoop Shims)'}
+                {ocrStatus?.engine_version || 'Unavailable'}
               </span>
             </div>
 
@@ -204,7 +205,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Supported Offline Language Models</span>
               <div style={{ display: 'flex', gap: '4px' }}>
-                {(ocrStatus?.supported_languages || ['eng', 'hin', 'osd']).map((lang) => (
+                {(ocrStatus?.supported_languages  || []).map((lang) => (
                   <span
                     key={lang}
                     style={{
@@ -234,7 +235,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Zero External Cloud Dependencies</span>
               <span style={{ fontWeight: 700, color: '#34d399' }}>
-                100% Offline Operational
+                {ocrStatus?.available && ocrStatus.offline_operational ? 'Available offline' : 'Unavailable'}
               </span>
             </div>
           </div>
@@ -282,7 +283,7 @@ export const SystemStatus: React.FC = () => {
               }}
             >
               <CheckCircle2 size={13} />
-              <span>HEALTHY</span>
+              <span>{health?.status === 'healthy' ? 'HEALTHY' : 'UNAVAILABLE'}</span>
             </span>
           </div>
 
@@ -299,7 +300,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Core Gateway Status</span>
               <span style={{ fontWeight: 700, color: '#34d399' }}>
-                {health?.services.backend === 'ok' ? 'Online & Listening' : 'Online'}
+                {health?.services.backend === 'ok' ? 'Online & Listening' : 'Unavailable'}
               </span>
             </div>
 
@@ -315,7 +316,7 @@ export const SystemStatus: React.FC = () => {
             >
               <span style={{ color: '#94a3b8' }}>Database Layer</span>
               <span style={{ fontWeight: 600, color: '#f1f5f9' }}>
-                {health?.services.database || 'PostgreSQL Configured'}
+                {health?.services.database || 'Unavailable'}
               </span>
             </div>
 
@@ -367,7 +368,7 @@ export const SystemStatus: React.FC = () => {
                 Interactive OpenAPI Documentation
               </span>
               <a
-                href="/docs"
+                href={`${env.API_BASE_URL.replace(/\/+$/, '')}/docs`}
                 target="_blank"
                 rel="noreferrer"
                 style={{

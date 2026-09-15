@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.job import JobModel
 
 from app.core.logging import logger
 from app.core.exceptions import (
@@ -9,6 +11,8 @@ from app.core.exceptions import (
     MissingFileError,
     DomainException,
     PipelineProcessingError,
+    DuplicateProcessingError,
+    InvalidStateTransitionError,
 )
 from app.models.document import DocumentModel
 from app.models.extraction import ExtractionResultModel
@@ -77,14 +81,29 @@ class DigitizationService:
     async def execute_pipeline(
         self,
         session: AsyncSession,
-        document_id: uuid.UUID
+        document_id: uuid.UUID,
+        job_id: Optional[uuid.UUID] = None,
     ) -> DigitizationPipelineResult:
         """
         Coordinates full processing on an existing registered document.
         All database operations are atomic within the session transaction.
         Enforces record upsert semantics to prevent orphan duplicates on re-processing.
         """
-        doc = await self.doc_service.get_document(session, document_id)
+        doc = await self.doc_service.get_document(session, document_id, lock=True)
+        active_query = select(JobModel.id).where(
+            JobModel.document_id == document_id,
+            JobModel.status.in_(["QUEUED", "PROCESSING", "RETRYING"]),
+        )
+        if job_id is not None:
+            active_query = active_query.where(JobModel.id != job_id)
+        active_id = (await session.execute(active_query.limit(1))).scalar_one_or_none()
+        if active_id is not None:
+            raise DuplicateProcessingError(document_id, active_id)
+        existing = await self.record_service.list_by_document(session, document_id)
+        for record in existing:
+            if record.review_status in {"APPROVED", "REJECTED"}:
+                raise InvalidStateTransitionError(record.review_status, "REPROCESS", "LandRecordReview")
+            await self.comparison_service.ensure_comparison_replaceable(session, record.id)
         logger.info(f"Starting digitization pipeline for Document {document_id} ('{doc.file_name}')")
 
         # Verify physical file existence in storage before initiating workflow
@@ -95,193 +114,195 @@ class DigitizationService:
             raise MissingFileError(doc.file_path)
 
         try:
-            # Stage 1: Transition document to PROCESSING
-            doc = await self.doc_service.update_status(session, document_id, "PROCESSING")
+            # Roll back partial extraction/record writes before recording failure.
+            async with session.begin_nested():
+                # Stage 1: Transition document to PROCESSING
+                doc = await self.doc_service.update_status(session, document_id, "PROCESSING")
 
-            # Stage 2: Read document binary from storage abstraction
-            file_bytes = await self.storage.read_file(doc.file_path)
+                # Stage 2: Read document binary from storage abstraction
+                file_bytes = await self.storage.read_file(doc.file_path)
 
-            # Stage 3: Extraction (Pluggable Isolated Provider)
-            raw_extraction = await self.extraction_provider.extract_document_fields(
-                document_id=doc.id,
-                file_bytes=file_bytes,
-                file_name=doc.file_name,
-                mime_type=doc.mime_type
-            )
-
-            # Stage 4: Persist raw ExtractionResultModel with structured fields
-            structured_dict = None
-            if raw_extraction.structured_fields:
-                structured_dict = {
-                    k: v.model_dump() for k, v in raw_extraction.structured_fields.items()
-                }
-            cat_str = (
-                raw_extraction.confidence_category.value
-                if hasattr(raw_extraction.confidence_category, "value")
-                else str(raw_extraction.confidence_category)
-            )
-
-            extraction_model = ExtractionResultModel(
-                id=uuid.uuid4(),
-                document_id=doc.id,
-                provider=raw_extraction.provider,
-                raw_text=raw_extraction.raw_text,
-                extracted_fields=raw_extraction.extracted_fields,
-                field_confidences=raw_extraction.field_confidences,
-                structured_fields=structured_dict,
-                confidence_score=raw_extraction.confidence_score,
-                confidence_category=cat_str,
-                status=raw_extraction.status,
-                extracted_at=datetime.utcnow()
-            )
-            session.add(extraction_model)
-            await session.flush()
-            doc = await self.doc_service.update_status(session, document_id, "EXTRACTED")
-
-            # Stage 5: Deterministic Normalization
-            normalized_fields = NormalizationService.normalize_record_data(raw_extraction.extracted_fields)
-
-            # Stage 6: Record Upsert (Update existing record if re-processing, else create new)
-            existing_records = await self.record_service.list_by_document(session, doc.id)
-            if existing_records:
-                record_model = existing_records[0]
-                update_payload = LandRecordUpdate(
-                    state=normalized_fields["state"],
-                    district=normalized_fields["district"],
-                    tehsil=normalized_fields["tehsil"],
-                    village=normalized_fields["village"],
-                    khasra_number=normalized_fields["khasra_number"],
-                    khata_number=normalized_fields["khata_number"],
-                    area_in_hectares=normalized_fields["area_in_hectares"],
-                    land_classification=normalized_fields["land_classification"],
-                    owner_name=normalized_fields.get("owner_name"),
-                    co_owners=normalized_fields.get("co_owners"),
-                    patta_number=normalized_fields.get("patta_number"),
-                    registration_number=normalized_fields.get("registration_number"),
-                    mutation_number=normalized_fields.get("mutation_number"),
-                    document_date=normalized_fields.get("document_date"),
-                    status="NORMALIZED"
-                )
-                record_model = await self.record_service.update_record(session, record_model.id, update_payload)
-                record_model.confidence_score = raw_extraction.confidence_score
-                await session.flush()
-                logger.info(f"Updated existing land record {record_model.id} for document {doc.id}")
-                await audit_service.log_event(
-                    session=session,
-                    action="RECORD_UPDATED",
-                    entity_type="LAND_RECORD",
-                    actor_user_id=doc.created_by,
-                    entity_id=record_model.id,
-                    new_state={"status": record_model.status, "khasra": record_model.khasra_number}
-                )
-            else:
-                record_create = LandRecordCreate(
+                # Stage 3: Extraction (Pluggable Isolated Provider)
+                raw_extraction = await self.extraction_provider.extract_document_fields(
                     document_id=doc.id,
-                    created_by=doc.created_by,
-                    state=normalized_fields["state"],
-                    district=normalized_fields["district"],
-                    tehsil=normalized_fields["tehsil"],
-                    village=normalized_fields["village"],
-                    khasra_number=normalized_fields["khasra_number"],
-                    khata_number=normalized_fields["khata_number"],
-                    area_in_hectares=normalized_fields["area_in_hectares"],
-                    land_classification=normalized_fields["land_classification"],
-                    owner_name=normalized_fields.get("owner_name"),
-                    co_owners=normalized_fields.get("co_owners"),
-                    patta_number=normalized_fields.get("patta_number"),
-                    registration_number=normalized_fields.get("registration_number"),
-                    mutation_number=normalized_fields.get("mutation_number"),
-                    document_date=normalized_fields.get("document_date"),
-                    confidence_score=raw_extraction.confidence_score,
-                    status="NORMALIZED",
-                    review_status="PENDING_REVIEW"
-                )
-                record_model = await self.record_service.create_record(session, record_create)
-                logger.info(f"Created new land record {record_model.id} for document {doc.id}")
-                await audit_service.log_event(
-                    session=session,
-                    action="RECORD_CREATED",
-                    entity_type="LAND_RECORD",
-                    actor_user_id=doc.created_by,
-                    entity_id=record_model.id,
-                    new_state={"status": record_model.status, "khasra": record_model.khasra_number}
+                    file_bytes=file_bytes,
+                    file_name=doc.file_name,
+                    mime_type=doc.mime_type
                 )
 
-            # Stage 7: Validation Engine Check & Persistence
-            record_dict = {
-                "state": record_model.state,
-                "district": record_model.district,
-                "tehsil": record_model.tehsil,
-                "village": record_model.village,
-                "khasra_number": record_model.khasra_number,
-                "khata_number": record_model.khata_number,
-                "area_in_hectares": float(record_model.area_in_hectares),
-                "land_classification": record_model.land_classification,
-                "confidence_score": record_model.confidence_score
-            }
-            validation_resp = await self.val_service.validate_and_persist(
-                record_id=record_model.id,
-                record_data=record_dict,
-                session=session
-            )
-
-            # Audit event for record validation
-            val_audit_action = "RECORD_VALIDATED" if validation_resp.is_valid else "RECORD_FLAGGED"
-            await audit_service.log_event(
-                session=session,
-                action=val_audit_action,
-                entity_type="LAND_RECORD",
-                actor_user_id=doc.created_by,
-                entity_id=record_model.id,
-                new_state={"is_valid": validation_resp.is_valid, "status": record_model.status}
-            )
-
-            # Stage 8: Cross-Document Comparison & Discrepancy Detection (Phase 5)
-            comparison_summary = await self.comparison_service.compare_record(session, record_model.id)
-            if comparison_summary.total_discrepancies > 0:
-                await audit_service.log_event(
-                    session=session,
-                    action="DISCREPANCIES_DETECTED",
-                    entity_type="LAND_RECORD",
-                    actor_user_id=doc.created_by,
-                    entity_id=record_model.id,
-                    new_state={
-                        "total": comparison_summary.total_discrepancies,
-                        "critical": comparison_summary.critical_count,
-                        "high": comparison_summary.high_count,
-                        "highest_severity": comparison_summary.highest_severity
+                # Stage 4: Persist raw ExtractionResultModel with structured fields
+                structured_dict = None
+                if raw_extraction.structured_fields:
+                    structured_dict = {
+                        k: v.model_dump() for k, v in raw_extraction.structured_fields.items()
                     }
+                cat_str = (
+                    raw_extraction.confidence_category.value
+                    if hasattr(raw_extraction.confidence_category, "value")
+                    else str(raw_extraction.confidence_category)
                 )
 
-            # Refresh record status in case comparison marked it FLAGGED
-            await session.refresh(record_model)
+                extraction_model = ExtractionResultModel(
+                    id=uuid.uuid4(),
+                    document_id=doc.id,
+                    provider=raw_extraction.provider,
+                    raw_text=raw_extraction.raw_text,
+                    extracted_fields=raw_extraction.extracted_fields,
+                    field_confidences=raw_extraction.field_confidences,
+                    structured_fields=structured_dict,
+                    confidence_score=raw_extraction.confidence_score,
+                    confidence_category=cat_str,
+                    status=raw_extraction.status,
+                    extracted_at=datetime.utcnow()
+                )
+                session.add(extraction_model)
+                await session.flush()
+                doc = await self.doc_service.update_status(session, document_id, "EXTRACTED")
 
-            # Stage 9: Update Document final status (VALIDATED vs FLAGGED)
-            is_record_flagged = (
-                not validation_resp.is_valid
-                or record_model.status == "FLAGGED"
-                or (comparison_summary.highest_severity in ("CRITICAL", "HIGH"))
-            )
-            final_doc_status = "FLAGGED" if is_record_flagged else "VALIDATED"
-            doc = await self.doc_service.update_status(session, document_id, final_doc_status)
+                # Stage 5: Deterministic Normalization
+                normalized_fields = NormalizationService.normalize_record_data(raw_extraction.extracted_fields)
 
-            summary = (
-                f"Successfully processed document {doc.id}. "
-                f"Record ID: {record_model.id} (Status: {record_model.status}). "
-                f"Validation: {'PASSED' if validation_resp.is_valid else 'FLAGGED'}. "
-                f"Discrepancies: {comparison_summary.total_discrepancies} detected "
-                f"({comparison_summary.critical_count} critical, {comparison_summary.high_count} high)."
-            )
-            logger.info(summary)
+                # Stage 6: Record Upsert (Update existing record if re-processing, else create new)
+                existing_records = await self.record_service.list_by_document(session, doc.id)
+                if existing_records:
+                    record_model = existing_records[0]
+                    update_payload = LandRecordUpdate(
+                        state=normalized_fields["state"],
+                        district=normalized_fields["district"],
+                        tehsil=normalized_fields["tehsil"],
+                        village=normalized_fields["village"],
+                        khasra_number=normalized_fields["khasra_number"],
+                        khata_number=normalized_fields["khata_number"],
+                        area_in_hectares=normalized_fields["area_in_hectares"],
+                        land_classification=normalized_fields["land_classification"],
+                        owner_name=normalized_fields.get("owner_name"),
+                        co_owners=normalized_fields.get("co_owners"),
+                        patta_number=normalized_fields.get("patta_number"),
+                        registration_number=normalized_fields.get("registration_number"),
+                        mutation_number=normalized_fields.get("mutation_number"),
+                        document_date=normalized_fields.get("document_date"),
+                        status="NORMALIZED"
+                    )
+                    record_model = await self.record_service.update_record(session, record_model.id, update_payload)
+                    record_model.confidence_score = raw_extraction.confidence_score
+                    await session.flush()
+                    logger.info(f"Updated existing land record {record_model.id} for document {doc.id}")
+                    await audit_service.log_event(
+                        session=session,
+                        action="RECORD_UPDATED",
+                        entity_type="LAND_RECORD",
+                        actor_user_id=doc.created_by,
+                        entity_id=record_model.id,
+                        new_state={"status": record_model.status, "khasra": record_model.khasra_number}
+                    )
+                else:
+                    record_create = LandRecordCreate(
+                        document_id=doc.id,
+                        created_by=doc.created_by,
+                        state=normalized_fields["state"],
+                        district=normalized_fields["district"],
+                        tehsil=normalized_fields["tehsil"],
+                        village=normalized_fields["village"],
+                        khasra_number=normalized_fields["khasra_number"],
+                        khata_number=normalized_fields["khata_number"],
+                        area_in_hectares=normalized_fields["area_in_hectares"],
+                        land_classification=normalized_fields["land_classification"],
+                        owner_name=normalized_fields.get("owner_name"),
+                        co_owners=normalized_fields.get("co_owners"),
+                        patta_number=normalized_fields.get("patta_number"),
+                        registration_number=normalized_fields.get("registration_number"),
+                        mutation_number=normalized_fields.get("mutation_number"),
+                        document_date=normalized_fields.get("document_date"),
+                        confidence_score=raw_extraction.confidence_score,
+                        status="NORMALIZED",
+                        review_status="PENDING_REVIEW"
+                    )
+                    record_model = await self.record_service.create_record(session, record_create)
+                    logger.info(f"Created new land record {record_model.id} for document {doc.id}")
+                    await audit_service.log_event(
+                        session=session,
+                        action="RECORD_CREATED",
+                        entity_type="LAND_RECORD",
+                        actor_user_id=doc.created_by,
+                        entity_id=record_model.id,
+                        new_state={"status": record_model.status, "khasra": record_model.khasra_number}
+                    )
 
-            return DigitizationPipelineResult(
-                document=self.doc_service.to_response_dto(doc),
-                extraction=ExtractionResultResponse.model_validate(extraction_model),
-                records=[LandRecordResponse.model_validate(record_model)],
-                validations=[validation_resp],
-                discrepancies=comparison_summary,
-                summary=summary
-            )
+                # Stage 7: Validation Engine Check & Persistence
+                record_dict = {
+                    "state": record_model.state,
+                    "district": record_model.district,
+                    "tehsil": record_model.tehsil,
+                    "village": record_model.village,
+                    "khasra_number": record_model.khasra_number,
+                    "khata_number": record_model.khata_number,
+                    "area_in_hectares": float(record_model.area_in_hectares),
+                    "land_classification": record_model.land_classification,
+                    "confidence_score": record_model.confidence_score
+                }
+                validation_resp = await self.val_service.validate_and_persist(
+                    record_id=record_model.id,
+                    record_data=record_dict,
+                    session=session
+                )
+
+                # Audit event for record validation
+                val_audit_action = "RECORD_VALIDATED" if validation_resp.is_valid else "RECORD_FLAGGED"
+                await audit_service.log_event(
+                    session=session,
+                    action=val_audit_action,
+                    entity_type="LAND_RECORD",
+                    actor_user_id=doc.created_by,
+                    entity_id=record_model.id,
+                    new_state={"is_valid": validation_resp.is_valid, "status": record_model.status}
+                )
+
+                # Stage 8: Cross-Document Comparison & Discrepancy Detection (Phase 5)
+                comparison_summary = await self.comparison_service.compare_record(session, record_model.id)
+                if comparison_summary.total_discrepancies > 0:
+                    await audit_service.log_event(
+                        session=session,
+                        action="DISCREPANCIES_DETECTED",
+                        entity_type="LAND_RECORD",
+                        actor_user_id=doc.created_by,
+                        entity_id=record_model.id,
+                        new_state={
+                            "total": comparison_summary.total_discrepancies,
+                            "critical": comparison_summary.critical_count,
+                            "high": comparison_summary.high_count,
+                            "highest_severity": comparison_summary.highest_severity
+                        }
+                    )
+
+                # Refresh record status in case comparison marked it FLAGGED
+                await session.refresh(record_model)
+
+                # Stage 9: Update Document final status (VALIDATED vs FLAGGED)
+                is_record_flagged = (
+                    not validation_resp.is_valid
+                    or record_model.status == "FLAGGED"
+                    or (comparison_summary.highest_severity in ("CRITICAL", "HIGH"))
+                )
+                final_doc_status = "FLAGGED" if is_record_flagged else "VALIDATED"
+                doc = await self.doc_service.update_status(session, document_id, final_doc_status)
+
+                summary = (
+                    f"Successfully processed document {doc.id}. "
+                    f"Record ID: {record_model.id} (Status: {record_model.status}). "
+                    f"Validation: {'PASSED' if validation_resp.is_valid else 'FLAGGED'}. "
+                    f"Discrepancies: {comparison_summary.total_discrepancies} detected "
+                    f"({comparison_summary.critical_count} critical, {comparison_summary.high_count} high)."
+                )
+                logger.info(summary)
+
+                return DigitizationPipelineResult(
+                    document=self.doc_service.to_response_dto(doc),
+                    extraction=ExtractionResultResponse.model_validate(extraction_model),
+                    records=[LandRecordResponse.model_validate(record_model)],
+                    validations=[validation_resp],
+                    discrepancies=comparison_summary,
+                    summary=summary
+                )
 
         except DomainException as de:
             logger.warning(f"Domain error during pipeline processing for document {document_id}: {de.message}")
@@ -298,7 +319,7 @@ class DigitizationService:
                 await session.commit()
             except Exception:
                 pass
-            raise PipelineProcessingError(str(exc))
+            raise PipelineProcessingError("Unexpected processing error. Check the server logs for details.") from exc
 
     async def upload_and_process(
         self,
@@ -307,7 +328,8 @@ class DigitizationService:
         mime_type: str,
         file_bytes: bytes,
         doc_type: str = "JAMABANDI",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        created_by: Optional[uuid.UUID] = None,
     ) -> DigitizationPipelineResult:
         """
         Convenience one-step method: registers document and immediately runs the full pipeline.
@@ -318,7 +340,8 @@ class DigitizationService:
             mime_type=mime_type,
             file_bytes=file_bytes,
             doc_type=doc_type,
-            metadata=metadata
+            metadata=metadata,
+            created_by=created_by,
         )
         return await self.execute_pipeline(session, doc.id)
 

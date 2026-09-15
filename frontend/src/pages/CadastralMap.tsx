@@ -17,6 +17,12 @@ import { mapApi } from '../api/map';
 import { CadastralMapRecord } from '../types';
 import { useNavigation } from '../context/NavigationContext';
 
+const escapeHtml = (value: string): string => {
+  const element = document.createElement('span');
+  element.textContent = value;
+  return element.innerHTML;
+};
+
 export const CadastralMap: React.FC = () => {
   const { navigate } = useNavigation();
 
@@ -142,7 +148,7 @@ export const CadastralMap: React.FC = () => {
           });
 
           geoLayer.bindTooltip(
-            `<strong>Khasra: ${parcel.khasra_number}</strong><br/>Village: ${parcel.village}<br/>Area: ${parcel.area_in_hectares} Ha`,
+            `<strong>Khasra: ${escapeHtml(parcel.khasra_number)}</strong><br/>Village: ${escapeHtml(parcel.village)}<br/>Area: ${parcel.area_in_hectares} Ha`,
             { sticky: true, className: 'cadastral-tooltip' }
           );
 
@@ -173,7 +179,7 @@ export const CadastralMap: React.FC = () => {
             color: #ffffff;
             font-size: 11px;
             font-weight: 700;
-          ">${parcel.khasra_number.slice(0, 3)}</div>`,
+          ">${escapeHtml(parcel.khasra_number.slice(0, 3))}</div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14],
         });
@@ -184,7 +190,7 @@ export const CadastralMap: React.FC = () => {
         });
 
         marker.bindTooltip(
-          `<strong>Khasra ${parcel.khasra_number}</strong> (${parcel.status})`,
+          `<strong>Khasra ${escapeHtml(parcel.khasra_number)}</strong> (${escapeHtml(parcel.status)})`,
           { direction: 'top', offset: [0, -10] }
         );
 

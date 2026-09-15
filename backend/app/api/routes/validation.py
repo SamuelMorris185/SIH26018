@@ -24,7 +24,7 @@ async def validate_record(
     Executes the modular rule verification engine on an existing land record and persists the audit result.
     Updates record status to VALIDATED or FLAGGED.
     """
-    record = await land_record_service.get_record(session, record_id)
+    record = await land_record_service.get_record(session, record_id, current_user)
     record_dict = {
         "state": record.state,
         "district": record.district,
@@ -59,7 +59,7 @@ async def get_record_validation_history(
     """
     Retrieves historical verification audit trail for the given record.
     """
-    await land_record_service.get_record(session, record_id)
+    await land_record_service.get_record(session, record_id, current_user)
     history = await validation_service.get_validation_history(record_id, session)
     return [
         ValidationCheckResponse(

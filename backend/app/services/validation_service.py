@@ -1,4 +1,5 @@
 import uuid
+from datetime import timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -45,7 +46,8 @@ class ValidationService:
             status=evaluation.status,
             rule_results=[r.model_dump() for r in evaluation.rule_results],
             discrepancy_summary=evaluation.discrepancy_summary,
-            validated_at=evaluation.validated_at
+            # Existing schema stores naive UTC, as do all other audit timestamps.
+            validated_at=evaluation.validated_at.astimezone(timezone.utc).replace(tzinfo=None)
         )
         session.add(val_model)
 

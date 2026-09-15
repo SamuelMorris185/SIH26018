@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import re
+import math
 from typing import Dict, Any, List, Optional
 from app.schemas.validation import RuleValidationResult
 
@@ -76,7 +77,7 @@ class AreaSanityRule(BaseValidationRule):
                 severity=self.severity
             )
 
-        if val <= 0:
+        if not math.isfinite(val) or val <= 0:
             return RuleValidationResult(
                 rule_name=self.rule_name,
                 passed=False,
@@ -151,9 +152,9 @@ class ConfidenceThresholdRule(BaseValidationRule):
         try:
             val = float(score)
         except (ValueError, TypeError):
-            val = 1.0
+            val = 0.0
 
-        if val < self.THRESHOLD:
+        if not math.isfinite(val) or not 0 <= val <= 1 or val < self.THRESHOLD:
             return RuleValidationResult(
                 rule_name=self.rule_name,
                 passed=False,

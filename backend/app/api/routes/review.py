@@ -12,6 +12,7 @@ from app.schemas.review import (
     ReviewDetailResponse
 )
 from app.services.review_service import review_service
+from app.services.land_record_service import land_record_service
 from app.api.dependencies.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/records", tags=["Human Review & Approval"])
@@ -25,6 +26,7 @@ async def get_record_review(
     """
     Retrieve human review status, notes, rejection reasons, and reviewer identity.
     """
+    await land_record_service.get_record(session, record_id, current_user)
     return await review_service.get_review_status(session, record_id)
 
 @router.post("/{record_id}/submit-review", response_model=ReviewDetailResponse)
@@ -37,6 +39,7 @@ async def submit_record_for_review(
     """
     Submit or assign a land record for human review (transitions to IN_REVIEW).
     """
+    await land_record_service.get_record(session, record_id, current_user)
     result = await review_service.submit_for_review(
         session=session,
         record_id=record_id,

@@ -18,6 +18,7 @@ from app.schemas.discrepancy import (
     ComparisonSummaryResponse,
 )
 from app.services.comparison_service import comparison_service
+from app.services.land_record_service import land_record_service
 from app.api.dependencies.auth import get_current_user, require_role
 
 router = APIRouter(tags=["Cross-Record Discrepancy Detection"])
@@ -38,6 +39,9 @@ async def list_all_discrepancies(
     """
     query = select(DiscrepancyModel)
     count_query = select(func.count(DiscrepancyModel.id))
+    ownership = DiscrepancyModel.land_record.has(land_record_service.access_condition(current_user))
+    query = query.where(ownership)
+    count_query = count_query.where(ownership)
 
     if status_filter:
         query = query.where(DiscrepancyModel.status == status_filter.upper())
@@ -69,14 +73,6 @@ async def list_all_discrepancies(
     )
 
 
-def _verify_record_access(record: LandRecordModel, user: UserModel) -> None:
-    """Ensures operators cannot access or modify records owned by other operators."""
-    if user.role in (UserRole.ADMIN.value, UserRole.REVIEWER.value, UserRole.VIEWER.value):
-        return
-    if user.role == UserRole.OPERATOR.value:
-        if record.created_by is not None and record.created_by != user.id:
-            raise ForbiddenError("You do not have permission to access records created by another operator.")
-
 @router.get("/records/{record_id}/discrepancies", response_model=List[DiscrepancyResponse])
 async def get_record_discrepancies(
     record_id: uuid.UUID,
@@ -87,11 +83,7 @@ async def get_record_discrepancies(
     Retrieve all discrepancies detected for a specific land record.
     Enforces resource ownership isolation for operators.
     """
-    res = await session.execute(select(LandRecordModel).where(LandRecordModel.id == record_id))
-    record = res.scalars().first()
-    if not record:
-        raise RecordNotFoundError(record_id)
-    _verify_record_access(record, current_user)
+    await land_record_service.get_record(session, record_id, current_user)
 
     discrepancies = await comparison_service.get_record_discrepancies(session, record_id)
     return [DiscrepancyResponse.model_validate(d) for d in discrepancies]
@@ -106,11 +98,7 @@ async def trigger_record_comparison(
     Manually trigger cross-document comparison and discrepancy detection on a land record.
     Requires ADMIN or OPERATOR role. Enforces operator resource isolation.
     """
-    res = await session.execute(select(LandRecordModel).where(LandRecordModel.id == record_id))
-    record = res.scalars().first()
-    if not record:
-        raise RecordNotFoundError(record_id)
-    _verify_record_access(record, current_user)
+    await land_record_service.get_record(session, record_id, current_user)
 
     summary = await comparison_service.compare_record(session, record_id)
     await session.commit()
@@ -125,11 +113,7 @@ async def get_record_comparisons(
     """
     Retrieve historical comparison pairings for a land record.
     """
-    res = await session.execute(select(LandRecordModel).where(LandRecordModel.id == record_id))
-    record = res.scalars().first()
-    if not record:
-        raise RecordNotFoundError(record_id)
-    _verify_record_access(record, current_user)
+    await land_record_service.get_record(session, record_id, current_user)
 
     comparisons = await comparison_service.get_record_comparisons(session, record_id)
     return [

@@ -39,8 +39,8 @@ def test_ocr_provider_selection_factory():
     assert isinstance(tess_prov, TesseractOCRProvider)
     assert tess_prov.provider_name == "TESSERACT_OCR_V1"
 
-    fallback_prov = get_extraction_provider("UNKNOWN_ENGINE_XYZ")
-    assert isinstance(fallback_prov, MockExtractionProvider)
+    with pytest.raises(OCREngineUnavailableError):
+        get_extraction_provider("UNKNOWN_ENGINE_XYZ")
 
 @pytest.mark.asyncio
 async def test_tesseract_provider_unavailable_handling():

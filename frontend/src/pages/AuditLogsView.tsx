@@ -90,7 +90,7 @@ export const AuditLogsView: React.FC = () => {
               Immutable Compliance Audit Trail
             </h2>
             <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>
-              Cryptographically timestamped, append-only logs for legal governance and security verification
+              Timestamped audit events for record changes, review decisions, and authentication
             </p>
           </div>
         </div>

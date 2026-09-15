@@ -24,6 +24,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 
 from app.core.logging import logger
+from app.core.config import settings
+from app.schemas.extraction import categorize_confidence
 from app.core.exceptions import RecordNotFoundError, ForbiddenError
 from app.models.land_record import LandRecordModel
 from app.models.document import DocumentModel
@@ -388,7 +390,7 @@ class VerificationReportService:
         for field_key, field_label, fallback_val in sample_fields:
             val = extracted_dict.get(field_key, fallback_val)
             score = confidences.get(field_key, record.confidence_score)
-            tier = "HIGH" if score >= 0.85 else ("MEDIUM" if score >= 0.70 else "LOW")
+            tier = categorize_confidence(score, settings.CONFIDENCE_THRESHOLD_HIGH, settings.CONFIDENCE_THRESHOLD_MEDIUM).value
             tier_color = "#059669" if tier == "HIGH" else ("#d97706" if tier == "MEDIUM" else "#dc2626")
             status_text = "PASSED" if tier != "LOW" else "FLAGGED_FOR_REVIEW"
 
@@ -506,7 +508,7 @@ class VerificationReportService:
         else:
             no_disc_p = Paragraph(
                 "<b>No cross-record discrepancies recorded.</b> "
-                "Cross-examination did not detect any conflicting area measurements, duplicate ownership claims, or spatial overlap.",
+                "This summary includes only recorded checks; it does not certify ownership or spatial overlap.",
                 self.body_style
             )
             no_disc_table = Table([[no_disc_p]], colWidths=[usable_width])

@@ -35,9 +35,8 @@ export const CriticalConfidenceWarning: React.FC<CriticalConfidenceWarningProps>
           </div>
           <div style={{ fontSize: '0.82rem', marginTop: '3px', color: '#fda4af' }}>
             Automated OCR confidence fell below the safety threshold (60%) for:{' '}
-            <strong>{lowFields.join(', ')}</strong>. This record has been automatically{' '}
-            <span style={{ color: '#fff', fontWeight: 600 }}>FLAGGED</span> and requires mandatory
-            human verification.
+            <strong>{lowFields.join(', ')}</strong>. Check these fields against the source document
+            before making a review decision.
           </div>
         </div>
       </div>

@@ -65,4 +65,5 @@ async def retry_job(
     """
     job = await job_service.retry_job(session, job_id, current_user)
     await session.commit()
+    job_service.dispatch_job(job.id)
     return JobResponse.model_validate(job)

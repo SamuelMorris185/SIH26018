@@ -1,6 +1,7 @@
 import io
 import re
 import uuid
+import anyio
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple
 from PIL import Image, ImageEnhance, ImageFilter
@@ -122,6 +123,11 @@ class TesseractOCRProvider(BaseExtractionProvider):
         file_name: str,
         mime_type: str
     ) -> RawExtractionPayload:
+        return await anyio.to_thread.run_sync(
+            self._extract_document_fields, document_id, file_bytes, file_name, mime_type
+        )
+
+    def _extract_document_fields(self, document_id, file_bytes, file_name, mime_type) -> RawExtractionPayload:
         logger.info(f"[TESSERACT_OCR] Starting real OCR extraction for '{file_name}' (doc_id={document_id}, size={len(file_bytes)} bytes)")
 
         if not file_bytes or len(file_bytes) == 0:
@@ -372,9 +378,7 @@ class TesseractOCRProvider(BaseExtractionProvider):
             extracted_fields["area_unit"] = "hectare"
 
         # Defaults for mandatory fields only when text was extracted but field was absent
-        if not extracted_fields.get("state") and len(text.strip()) > 20:
-            extracted_fields["state"] = "Madhya Pradesh"
-            field_confidences["state"] = 0.50
+        # Missing geography stays missing so mandatory-field validation can flag it.
         if not extracted_fields.get("land_classification") and len(text.strip()) > 20:
             extracted_fields["land_classification"] = "Agricultural"
 

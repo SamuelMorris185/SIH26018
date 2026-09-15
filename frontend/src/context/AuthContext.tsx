@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, UserRole } from '../types';
 import { authApi } from '../api/auth';
-import { authStorage } from '../api/client';
+import { authStorage, AUTH_CLEARED_EVENT } from '../api/client';
 
 interface AuthContextType {
   user: User | null;
@@ -51,6 +51,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     rehydrate();
+    const clearSession = () => {
+      if (!authStorage.getToken()) {
+        setUser(null);
+        setToken(null);
+      }
+    };
+    window.addEventListener(AUTH_CLEARED_EVENT, clearSession);
+    window.addEventListener('storage', clearSession);
+    return () => {
+      window.removeEventListener(AUTH_CLEARED_EVENT, clearSession);
+      window.removeEventListener('storage', clearSession);
+    };
   }, [rehydrate]);
 
   const login = async (email: string, password: string): Promise<void> => {

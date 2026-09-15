@@ -1,6 +1,9 @@
-import os
+from pathlib import Path
 from typing import List, Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     APP_NAME: str = "SIH26018 Intelligent Land Record System"
@@ -35,8 +38,22 @@ class Settings(BaseSettings):
     CONFIDENCE_THRESHOLD_LOW: float = 0.60
     AREA_TOLERANCE_HECTARES: float = 0.01
 
+    @model_validator(mode="after")
+    def validate_configuration(self):
+        self.OCR_ENGINE = self.OCR_ENGINE.strip().upper()
+        if self.OCR_ENGINE not in {"MOCK", "TESSERACT"}:
+            raise ValueError("OCR_ENGINE must be MOCK or TESSERACT")
+        if self.APP_ENV.lower() not in {"development", "test", "testing"}:
+            if self.JWT_SECRET_KEY.startswith("dev_") or len(self.JWT_SECRET_KEY.encode()) < 32:
+                raise ValueError("Set a unique JWT_SECRET_KEY of at least 32 bytes outside development")
+        if not 0 <= self.CONFIDENCE_THRESHOLD_LOW <= self.CONFIDENCE_THRESHOLD_MEDIUM <= self.CONFIDENCE_THRESHOLD_HIGH <= 1:
+            raise ValueError("Confidence thresholds must be ordered within [0, 1]")
+        if self.ACCESS_TOKEN_EXPIRE_MINUTES <= 0 or self.MAX_UPLOAD_SIZE_BYTES <= 0:
+            raise ValueError("Token lifetime and upload limit must be positive")
+        return self
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )

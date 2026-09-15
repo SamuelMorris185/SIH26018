@@ -85,7 +85,8 @@ async def test_phase6_endpoints(unauthenticated_client: TestClient, db_session: 
     headers = {"Authorization": f"Bearer {token}"}
 
     # Test GET /api/v1/system/dashboard-stats
-    stats_resp = unauthenticated_client.get("/api/v1/system/dashboard-stats")
+    assert unauthenticated_client.get("/api/v1/system/dashboard-stats").status_code == 401
+    stats_resp = unauthenticated_client.get("/api/v1/system/dashboard-stats", headers=headers)
     assert stats_resp.status_code == 200
     stats_data = stats_resp.json()
     assert "total_records" in stats_data

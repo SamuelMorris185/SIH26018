@@ -1,15 +1,10 @@
-"""
-Database Seed Script Skeleton for SIH26018
-Populates initial administrative roles and demonstration land records.
-"""
-
+"""Compatibility entry point for the migrated development-user seed."""
 import asyncio
-from app.core.logging import logger
+from pathlib import Path
+import sys
 
-async def seed_database():
-    logger.info("Initializing database seed procedure...")
-    # Seed skeleton procedure
-    logger.info("Database seed completed successfully.")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+from scripts.seed_demo_data import seed_users
 
 if __name__ == "__main__":
-    asyncio.run(seed_database())
+    asyncio.run(seed_users())

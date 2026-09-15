@@ -1,4 +1,4 @@
-import { apiClient, authStorage } from './client';
+import { apiClient } from './client';
 import {
   Document,
   DocumentPaginatedList,
@@ -60,19 +60,8 @@ export const documentsApi = {
   },
 
   async fetchDocumentBlob(documentId: string): Promise<{ blob: Blob; mimeType: string }> {
-    const url = apiClient.getStreamUrl(`/api/v1/documents/${documentId}/content`);
-    const token = authStorage.getToken();
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      throw new Error(`Failed to load document preview (HTTP ${response.status})`);
-    }
-    const blob = await response.blob();
-    const mimeType = response.headers.get('content-type') || 'application/octet-stream';
+    const { blob, headers } = await apiClient.getBlob(`/api/v1/documents/${documentId}/content`);
+    const mimeType = headers.get('content-type') || 'application/octet-stream';
     return { blob, mimeType };
   },
 };

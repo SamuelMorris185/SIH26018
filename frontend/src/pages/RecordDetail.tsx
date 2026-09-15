@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft,
   FileText,
@@ -71,13 +71,17 @@ export const RecordDetail: React.FC = () => {
   const [discrepancyNotes, setDiscrepancyNotes] = useState<string>('');
 
   const canReview = hasRole('ADMIN', 'REVIEWER');
+  const requestId = useRef(0);
 
   const fetchRecordData = useCallback(async () => {
-    if (!selectedRecordId) return;
+    const generation = ++requestId.current;
+    if (!selectedRecordId) { setLoading(false); return; }
+    setRecord(null);
     setLoading(true);
 
     try {
       const rec = await recordsApi.getRecord(selectedRecordId);
+      if (generation !== requestId.current) return;
       setRecord(rec);
 
       // Fetch supporting details concurrently
@@ -89,45 +93,48 @@ export const RecordDetail: React.FC = () => {
         reviewApi.getReviewStatus(selectedRecordId).catch(() => null),
       ]);
 
+      if (generation !== requestId.current) return;
+
       setExtraction(extData);
       setValidation(valData || rec.latest_validation || null);
       setDiscrepancies(discData.length > 0 ? discData : rec.discrepancies || []);
       setComparisons(compData);
       setReview(revData);
 
-      // If document exists, load preview blob
-      if (rec.document_id) {
-        loadDocumentPreview(rec.document_id);
-      }
     } catch (err: any) {
+      if (generation !== requestId.current) return;
       toastError(err?.message || 'Failed to load record details');
     } finally {
-      setLoading(false);
+      if (generation === requestId.current) setLoading(false);
     }
   }, [selectedRecordId, toastError]);
 
-  const loadDocumentPreview = async (docId: string) => {
-    setPreviewLoading(true);
-    try {
-      const { blob, mimeType } = await documentsApi.fetchDocumentBlob(docId);
-      const url = URL.createObjectURL(blob);
-      setPreviewBlobUrl(url);
-      setPreviewMimeType(mimeType);
-    } catch {
-      // preview error handled gracefully
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchRecordData();
-    return () => {
-      if (previewBlobUrl) {
-        URL.revokeObjectURL(previewBlobUrl);
-      }
-    };
+    return () => { requestId.current += 1; };
   }, [fetchRecordData]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setPreviewBlobUrl(null);
+    setPreviewMimeType('');
+    if (!record?.document_id) return;
+    setPreviewLoading(true);
+    documentsApi.fetchDocumentBlob(record.document_id)
+      .then(({ blob, mimeType }) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(objectUrl);
+        setPreviewMimeType(mimeType);
+      })
+      .catch((err) => { if (!cancelled) toastError(err.message || 'Preview unavailable'); })
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [record?.document_id, toastError]);
 
   const handleApprove = async () => {
     if (!selectedRecordId) return;
@@ -137,7 +144,7 @@ export const RecordDetail: React.FC = () => {
       setReview(updated);
       setIsApproveOpen(false);
       setReviewNotes('');
-      success('Record approved successfully! Status transitioned to VALIDATED.');
+      success('Record review approved successfully.');
       fetchRecordData();
     } catch (err: any) {
       toastError(err?.message || 'Approval failed');

@@ -1,6 +1,6 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, status, Request
+from fastapi import APIRouter, Depends, status, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -101,8 +101,8 @@ async def create_user_by_admin(
 
 @router.get("/users", response_model=List[UserResponse])
 async def list_users(
-    page: int = 1,
-    limit: int = 20,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     current_admin: UserModel = Depends(require_role(UserRole.ADMIN)),
     session: AsyncSession = Depends(get_db_session)
 ):

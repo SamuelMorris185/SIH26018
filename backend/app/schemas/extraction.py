@@ -2,7 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
+from app.core.config import settings
 
 class ConfidenceCategory(str, Enum):
     HIGH = "HIGH"
@@ -75,6 +76,14 @@ class ExtractionResultResponse(BaseModel):
     low_confidence_fields: List[str] = Field(default_factory=list)
     status: str = Field(default="SUCCESS", json_schema_extra={"example": "SUCCESS"})
     extracted_at: datetime
+
+    @model_validator(mode="after")
+    def restore_low_confidence_fields(self):
+        self.low_confidence_fields = [
+            name for name, score in (self.field_confidences or {}).items()
+            if score < settings.CONFIDENCE_THRESHOLD_MEDIUM
+        ]
+        return self
 
 class RawExtractionPayload(BaseModel):
     document_id: UUID

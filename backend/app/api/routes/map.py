@@ -69,7 +69,8 @@ async def validate_geometry(
     return gis_service.validate_geometry_payload(
         lat=payload.latitude,
         lon=payload.longitude,
-        geojson=payload.boundary_geojson
+        geojson=payload.boundary_geojson,
+        coordinate_reference_system=payload.coordinate_reference_system,
     )
 
 @router.post("/parcels/{record_id}", response_model=ParcelLocationResponse, status_code=status.HTTP_200_OK)

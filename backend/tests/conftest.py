@@ -19,6 +19,7 @@ from app.api.dependencies.auth import get_current_user
 from app.services.storage_service import LocalStorageService, storage_service
 from app.services.digitization_service import digitization_service
 from app.services.document_service import document_service
+from app.core.config import settings
 
 from sqlalchemy.pool import StaticPool
 
@@ -57,11 +58,14 @@ DEFAULT_TEST_ADMIN = UserModel(
 def configure_test_storage():
     """Sets up a temporary storage directory for documents created during tests."""
     temp_dir = tempfile.mkdtemp(prefix="sih_test_uploads_")
+    original_engine = settings.OCR_ENGINE
+    settings.OCR_ENGINE = "MOCK"
     test_storage = LocalStorageService(base_dir=temp_dir)
     storage_service.base_dir = test_storage.base_dir
     document_service.storage = test_storage
     digitization_service.storage = test_storage
     yield temp_dir
+    settings.OCR_ENGINE = original_engine
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 @pytest.fixture(autouse=True)

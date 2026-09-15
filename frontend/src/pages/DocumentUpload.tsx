@@ -29,19 +29,21 @@ export const DocumentUpload: React.FC = () => {
   const [result, setResult] = useState<DigitizationPipelineResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp'];
+  const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
   const maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
   const steps = [
     'Secure Document Upload & Verification',
     'Image Preprocessing (Grayscale, Contrast, Rescale)',
-    'Real Tesseract OCR Extraction Engine',
+    'Configured OCR Extraction Engine',
     'Deterministic Revenue Field Normalization',
     'Statutory Rule-Based Validation Check',
     'Parcel Identity Cross-Examination & Discrepancy Match',
   ];
 
   const validateAndSelectFile = (file: File) => {
+    if (isProcessing) return;
+    setSelectedFile(null);
     setError(null);
     setResult(null);
 
@@ -50,14 +52,14 @@ export const DocumentUpload: React.FC = () => {
       return;
     }
     if (file.size > maxSizeBytes) {
-      setError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds statutory 10 MB limit.`);
+      setError(`File size (${(file.size / (1024 * 1024)).toFixed(2)} MB) exceeds 10 MB upload limit.`);
       return;
     }
 
     const name = file.name.toLowerCase();
     const hasValidExt = allowedExtensions.some((ext) => name.endsWith(ext));
     if (!hasValidExt) {
-      setError(`Unsupported file format. Supported formats: PDF, PNG, JPG, JPEG, TIFF, BMP, WEBP.`);
+      setError(`Unsupported file format. Supported formats: PDF, PNG, JPG, JPEG, TIFF.`);
       return;
     }
 
@@ -120,7 +122,7 @@ export const DocumentUpload: React.FC = () => {
           Document Ingestion & Processing Gateway
         </h2>
         <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>
-          Upload scanned revenue records or digital land titles for automated Tesseract OCR parsing and validation
+          Upload scanned revenue records or digital land titles for automated OCR parsing and validation
         </p>
       </div>
 
@@ -205,7 +207,7 @@ export const DocumentUpload: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp"
+              accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif"
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   validateAndSelectFile(e.target.files[0]);

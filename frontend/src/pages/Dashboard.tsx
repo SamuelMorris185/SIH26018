@@ -42,11 +42,11 @@ export const Dashboard: React.FC = () => {
 
     try {
       const [statsData, ocrData, docsData, flaggedData, discData] = await Promise.all([
-        systemApi.getDashboardStats().catch(() => null),
-        systemApi.getOCRStatus().catch(() => null),
-        documentsApi.listDocuments({ limit: 5 }).catch(() => ({ total: 0, page: 1, limit: 5, data: [] })),
-        recordsApi.listRecords({ status: 'FLAGGED', limit: 5 }).catch(() => ({ total: 0, page: 1, limit: 5, data: [] })),
-        discrepanciesApi.listDiscrepancies({ status: 'OPEN', limit: 5 }).catch(() => ({ total: 0, page: 1, limit: 5, data: [] })),
+        systemApi.getDashboardStats(),
+        systemApi.getOCRStatus(),
+        documentsApi.listDocuments({ limit: 5 }),
+        recordsApi.listRecords({ status: 'FLAGGED', limit: 5 }),
+        discrepanciesApi.listDiscrepancies({ status: 'OPEN', limit: 5 }),
       ]);
 
       if (statsData) setStats(statsData);

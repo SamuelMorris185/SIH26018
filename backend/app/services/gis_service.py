@@ -84,6 +84,8 @@ class GisService:
         coords = geom_obj.get("coordinates")
         if coords is None or not isinstance(coords, list):
             return False, geom_type, 0, ["Geometry must contain a 'coordinates' list."]
+        if not coords:
+            return False, geom_type, 0, ["Geometry coordinates must not be empty."]
 
         vertex_count = 0
         MAX_VERTICES = 5000
@@ -118,6 +120,9 @@ class GisService:
             vertex_count = 1
             if len(coords) < 2 or not isinstance(coords[0], (int, float)) or not isinstance(coords[1], (int, float)):
                 errors.append("Point coordinates must be [longitude, latitude].")
+            else:
+                _, point_errors = GisService.validate_coordinates(coords[1], coords[0])
+                errors.extend(point_errors)
 
         elif geom_type == "Polygon":
             for ring in coords:
@@ -126,7 +131,7 @@ class GisService:
 
         elif geom_type == "MultiPolygon":
             for poly in coords:
-                if not isinstance(poly, list):
+                if not isinstance(poly, list) or not poly:
                     errors.append("MultiPolygon coordinates must be a list of Polygons.")
                     break
                 for ring in poly:
@@ -140,13 +145,18 @@ class GisService:
         self,
         lat: Optional[float],
         lon: Optional[float],
-        geojson: Optional[Dict[str, Any]]
+        geojson: Optional[Dict[str, Any]],
+        coordinate_reference_system: str = "EPSG:4326",
     ) -> GeometryValidationResponse:
         """
         Comprehensive validation of coordinates and GeoJSON boundary.
         """
         all_errors = []
         all_warnings = []
+        if coordinate_reference_system != "EPSG:4326":
+            all_errors.append("Only EPSG:4326 coordinates are supported.")
+        if (lat is None) != (lon is None):
+            all_errors.append("Latitude and longitude must be provided together.")
 
         coords_valid, coord_errs = self.validate_coordinates(lat, lon)
         all_errors.extend(coord_errs)
@@ -194,7 +204,8 @@ class GisService:
         val_result = self.validate_geometry_payload(
             lat=location_data.latitude,
             lon=location_data.longitude,
-            geojson=location_data.boundary_geojson
+            geojson=location_data.boundary_geojson,
+            coordinate_reference_system=location_data.coordinate_reference_system,
         )
         if not val_result.is_valid:
             raise DomainException(
@@ -284,6 +295,8 @@ class GisService:
             filters.append(LandRecordModel.district.ilike(f"%{district_filter}%"))
         if village_filter:
             filters.append(LandRecordModel.village.ilike(f"%{village_filter}%"))
+        if has_discrepancies is not None:
+            filters.append(LandRecordModel.discrepancies.any() == has_discrepancies)
 
         # Only return records that have a valid coordinate or boundary
         filters.append(

@@ -1,4 +1,6 @@
 import uuid
+from urllib.parse import quote
+from app.core.config import settings
 from typing import Optional, List, Union
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +36,7 @@ async def upload_document(
     Registers a new physical land document in storage and database.
     Requires ADMIN or OPERATOR role. Assigns ownership to authenticated user.
     """
-    content = await file.read()
+    content = await file.read(settings.MAX_UPLOAD_SIZE_BYTES + 1)
     mime_type = file.content_type or "application/octet-stream"
     doc = await document_service.register_document(
         session=session,
@@ -62,6 +64,7 @@ async def list_documents(
     total, docs = await document_service.list_documents(
         session=session,
         status_filter=status_filter,
+        current_user=current_user,
         doc_type_filter=doc_type,
         page=page,
         limit=limit
@@ -100,11 +103,14 @@ async def get_document_content(
     document_service.check_document_access(doc, current_user)
     
     file_bytes = await document_service.storage.read_file(doc.file_path)
+    encoded_name = quote(doc.file_name, safe="")
+    disposition = (f'inline; filename="{encoded_name}"' if encoded_name == doc.file_name
+                   else f"inline; filename*=UTF-8''{encoded_name}")
     return Response(
         content=file_bytes,
         media_type=doc.mime_type or "application/octet-stream",
         headers={
-            "Content-Disposition": f'inline; filename="{doc.file_name}"',
+            "Content-Disposition": disposition,
             "Cache-Control": "private, max-age=3600",
         }
     )
@@ -165,6 +171,7 @@ async def get_document_jobs(
     query = select(JobModel).where(JobModel.document_id == document_id).order_by(desc(JobModel.created_at))
     res = await session.execute(query)
     jobs = list(res.scalars().all())
+    jobs = [j for j in jobs if current_user.role == "ADMIN" or j.created_by == current_user.id or doc.created_by == current_user.id]
     return [JobResponse.model_validate(j) for j in jobs]
 
 @router.get("/{document_id}/records", response_model=List[LandRecordResponse])
@@ -180,4 +187,3 @@ async def get_document_records(
     document_service.check_document_access(doc, current_user)
     records = await land_record_service.list_by_document(session, document_id)
     return [LandRecordResponse.model_validate(r) for r in records]
-
