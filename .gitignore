@@ -11,7 +11,10 @@ venv/
 # Environment files
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
+!**/.env.example
 
 # Python cache and compiled files
 __pycache__/
@@ -26,6 +29,7 @@ __pycache__/
 dist/
 **/dist/
 build/
+**/build/
 
 # Coverage and test reports
 .coverage
@@ -42,6 +46,15 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Runtime document storage (fixtures belong under backend/tests/fixtures)
+# Runtime document storage and generated reports (fixtures belong under backend/tests/fixtures)
 uploads/
 backend/uploads/
+**/uploads/
+reports/
+backend/reports/
+**/reports/
+
+# Generated runtime PDFs (preserve test fixtures)
+*.pdf
+!backend/tests/fixtures/**/*.pdf
+

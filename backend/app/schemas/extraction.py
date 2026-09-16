@@ -70,12 +70,13 @@ class ExtractionResultResponse(BaseModel):
     raw_text: Optional[str] = None
     extracted_fields: Dict[str, Any]
     field_confidences: Optional[Dict[str, float]] = None
-    structured_fields: Optional[Dict[str, FieldExtractionEvidence]] = None
+    structured_fields: Optional[Dict[str, Any]] = None
     confidence_score: float = Field(default=1.0, ge=0.0, le=1.0)
     confidence_category: ConfidenceCategory = ConfidenceCategory.HIGH
     low_confidence_fields: List[str] = Field(default_factory=list)
     status: str = Field(default="SUCCESS", json_schema_extra={"example": "SUCCESS"})
     extracted_at: datetime
+    ai_metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def restore_low_confidence_fields(self):
@@ -83,6 +84,9 @@ class ExtractionResultResponse(BaseModel):
             name for name, score in (self.field_confidences or {}).items()
             if score < settings.CONFIDENCE_THRESHOLD_MEDIUM
         ]
+        if not self.ai_metadata and self.structured_fields and isinstance(self.structured_fields, dict):
+            if "_ai_metadata" in self.structured_fields:
+                self.ai_metadata = self.structured_fields.get("_ai_metadata")
         return self
 
 class RawExtractionPayload(BaseModel):

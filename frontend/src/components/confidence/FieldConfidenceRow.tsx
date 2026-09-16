@@ -82,6 +82,22 @@ export const FieldConfidenceRow: React.FC<FieldConfidenceRowProps> = ({
             CRITICAL
           </span>
         )}
+        {evidence?.source === 'ai_assistant' && (
+          <span
+            style={{
+              fontSize: '0.65rem',
+              background: 'rgba(168, 85, 247, 0.15)',
+              color: '#c084fc',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              fontWeight: 600,
+            }}
+            title="Extracted via optional Gemini AI interpretation - Requires verification"
+          >
+            AI-assisted suggestion
+          </span>
+        )}
       </div>
 
       {/* Extracted Values (Raw vs Normalized) */}

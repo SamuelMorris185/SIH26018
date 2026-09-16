@@ -53,6 +53,27 @@ export interface FieldExtractionEvidence {
   evidence?: string | null;
 }
 
+export interface AIFieldConflict {
+  field: string;
+  deterministic_value: any;
+  ai_value: any;
+  resolution: string;
+  severity: string;
+  details: string;
+}
+
+export interface AIMetadata {
+  ai_used: boolean;
+  provider: string;
+  model: string;
+  status: string;
+  suggested_fields: Record<string, any>;
+  conflicts: AIFieldConflict[];
+  ambiguities: string[];
+  warnings: string[];
+  summary: string;
+}
+
 export interface ExtractionResult {
   id: string;
   document_id: string;
@@ -66,6 +87,7 @@ export interface ExtractionResult {
   low_confidence_fields: string[];
   status: string;
   extracted_at: string;
+  ai_metadata?: AIMetadata | null;
 }
 
 export interface RuleValidationResult {

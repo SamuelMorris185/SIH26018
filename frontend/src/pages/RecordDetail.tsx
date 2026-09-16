@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Cpu,
   UserCheck,
+  Sparkles,
 } from 'lucide-react';
 import { recordsApi } from '../api/records';
 import { documentsApi } from '../api/documents';
@@ -511,6 +512,203 @@ export const RecordDetail: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* AI Assistance Section */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.1rem 1.4rem',
+              border: extraction?.ai_metadata?.ai_used
+                ? '1px solid rgba(168, 85, 247, 0.35)'
+                : '1px solid rgba(255, 255, 255, 0.08)',
+              backgroundColor: extraction?.ai_metadata?.ai_used
+                ? 'rgba(168, 85, 247, 0.04)'
+                : 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '10px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    backgroundColor: extraction?.ai_metadata?.ai_used
+                      ? 'rgba(168, 85, 247, 0.18)'
+                      : 'rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Sparkles
+                    size={18}
+                    color={extraction?.ai_metadata?.ai_used ? '#c084fc' : '#94a3b8'}
+                  />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f8fafc' }}>
+                      AI Assistance
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '9999px',
+                        backgroundColor: extraction?.ai_metadata?.ai_used
+                          ? 'rgba(168, 85, 247, 0.2)'
+                          : 'rgba(148, 163, 184, 0.15)',
+                        color: extraction?.ai_metadata?.ai_used ? '#c084fc' : '#94a3b8',
+                        border: extraction?.ai_metadata?.ai_used
+                          ? '1px solid rgba(168, 85, 247, 0.4)'
+                          : '1px solid rgba(148, 163, 184, 0.2)',
+                      }}
+                    >
+                      {extraction?.ai_metadata?.ai_used ? 'Active' : 'Disabled / Standby'}
+                    </span>
+                    {extraction?.ai_metadata?.ai_used && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          color: '#eab308',
+                          backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                          border: '1px solid rgba(234, 179, 8, 0.25)',
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Requires verification
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                    {extraction?.ai_metadata?.ai_used
+                      ? `Model: ${extraction.ai_metadata.model || 'gemini-3.8-flash'} • AI-assisted interpretation of noisy OCR`
+                      : 'Deterministic pipeline only. Optional Gemini 3.8 Flash interpretation inactive.'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', fontSize: '0.8rem' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>AI Suggestions</span>
+                  <div style={{ fontWeight: 700, color: '#f8fafc' }}>
+                    {extraction?.ai_metadata?.suggested_fields
+                      ? Object.keys(extraction.ai_metadata.suggested_fields).length
+                      : 0}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>Conflicts Detected</span>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color:
+                        (extraction?.ai_metadata?.conflicts?.length || 0) > 0 ? '#fb7185' : '#10b981',
+                    }}
+                  >
+                    {extraction?.ai_metadata?.conflicts?.length || 0}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Details when active */}
+            {extraction?.ai_metadata?.ai_used && (
+              <div
+                style={{
+                  marginTop: '0.85rem',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  fontSize: '0.78rem',
+                }}
+              >
+                {extraction.ai_metadata.summary && (
+                  <div style={{ color: '#cbd5e1' }}>
+                    <span style={{ color: '#94a3b8', fontWeight: 600 }}>Summary: </span>
+                    {extraction.ai_metadata.summary}
+                  </div>
+                )}
+
+                {extraction.ai_metadata.suggested_fields &&
+                  Object.keys(extraction.ai_metadata.suggested_fields).length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ color: '#94a3b8', fontWeight: 600 }}>AI-assisted fields:</span>
+                      {Object.keys(extraction.ai_metadata.suggested_fields).map((fld) => (
+                        <span
+                          key={fld}
+                          style={{
+                            backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                            color: '#d8b4fe',
+                            padding: '1px 7px',
+                            borderRadius: '4px',
+                            fontSize: '0.72rem',
+                            fontWeight: 500,
+                          }}
+                        >
+                          {fld}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                {extraction.ai_metadata.conflicts && extraction.ai_metadata.conflicts.length > 0 && (
+                  <div
+                    style={{
+                      backgroundColor: 'rgba(244, 63, 94, 0.08)',
+                      border: '1px solid rgba(244, 63, 94, 0.25)',
+                      borderRadius: '6px',
+                      padding: '0.5rem 0.75rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: '#fb7185',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <AlertTriangle size={14} />
+                      <span>Conflicts Requiring Review (Deterministic extraction preserved)</span>
+                    </div>
+                    {extraction.ai_metadata.conflicts.map((c, i) => (
+                      <div key={i} style={{ color: '#e2e8f0', fontSize: '0.74rem' }}>
+                        <strong>{c.field}</strong>: Deterministic="{String(c.deterministic_value)}" vs AI
+                        suggestion="{String(c.ai_value)}"
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {extraction.ai_metadata.warnings && extraction.ai_metadata.warnings.length > 0 && (
+                  <div style={{ color: '#fbbf24', fontSize: '0.74rem' }}>
+                    <span style={{ fontWeight: 600 }}>Notices: </span>
+                    {extraction.ai_metadata.warnings.join(' • ')}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Fields Table */}

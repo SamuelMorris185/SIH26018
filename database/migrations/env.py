@@ -8,18 +8,6 @@ from sqlalchemy import Text, inspect, text
 from sqlalchemy.engine import make_url
 
 from alembic import context
-from alembic.ddl.postgresql import PostgresqlImpl
-
-
-class LandRecordPostgresqlImpl(PostgresqlImpl):
-    """Keep published revision IDs intact, including the 33-character revision 003."""
-
-    __dialect__ = "postgresql"
-
-    def version_table_impl(self, **kwargs):
-        table = super().version_table_impl(**kwargs)
-        table.c.version_num.type = Text()
-        return table
 
 # Ensure backend root is on sys.path
 backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
@@ -68,6 +56,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         render_as_batch=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_pk_length=64,
     )
 
     with context.begin_transaction():
@@ -85,15 +74,10 @@ def run_migrations_online() -> None:
     )
 
     with connectable.begin() as connection:
-        # Existing databases may have Alembic's original VARCHAR(32), or a
-        # manually widened column. TEXT preserves all values and never narrows it.
-        if connection.dialect.name == "postgresql" and inspect(connection).has_table("alembic_version"):
-            column = next(c for c in inspect(connection).get_columns("alembic_version") if c["name"] == "version_num")
-            if getattr(column["type"], "length", None) is not None:
-                connection.execute(text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE TEXT"))
         context.configure(
             connection=connection,
-            target_metadata=target_metadata
+            target_metadata=target_metadata,
+            version_table_pk_length=64,
         )
 
         with context.begin_transaction():

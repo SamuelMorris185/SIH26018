@@ -33,11 +33,17 @@ from app.services.validation_service import validation_service, ValidationServic
 from app.services.land_record_service import land_record_service, LandRecordService
 from app.services.comparison_service import comparison_service, ComparisonService
 from app.services.audit_service import audit_service
+from app.services.ai import (
+    BaseAIProvider,
+    get_ai_provider,
+    AIMergeService,
+    AIInterpretationResult,
+)
 
 class DigitizationService:
     """
     End-to-End Processing Pipeline Coordinator:
-    Document Verification -> Storage Read -> Extraction -> Normalization -> Record Upsert -> Validation -> Discrepancy Detection -> Persistence.
+    Document Verification -> Storage Read -> Extraction -> AI Assistance -> Merge -> Normalization -> Record Upsert -> Validation -> Discrepancy Detection -> Persistence.
     """
 
     def __init__(
@@ -47,7 +53,8 @@ class DigitizationService:
         val_service: Optional[ValidationService] = None,
         record_service: Optional[LandRecordService] = None,
         storage: Optional[BaseStorageService] = None,
-        comp_service: Optional[ComparisonService] = None
+        comp_service: Optional[ComparisonService] = None,
+        ai_provider: Optional[BaseAIProvider] = None,
     ):
         self.doc_service = doc_service or document_service
         self._extraction_provider = extraction_provider
@@ -55,6 +62,7 @@ class DigitizationService:
         self.record_service = record_service or land_record_service
         self.storage = storage or storage_service
         self.comparison_service = comp_service or comparison_service
+        self._ai_provider = ai_provider
 
     @property
     def extraction_provider(self) -> BaseExtractionProvider:
@@ -63,6 +71,16 @@ class DigitizationService:
     @extraction_provider.setter
     def extraction_provider(self, provider: BaseExtractionProvider) -> None:
         self._extraction_provider = provider
+
+    @property
+    def ai_provider(self) -> Optional[BaseAIProvider]:
+        if self._ai_provider is not None:
+            return self._ai_provider
+        return get_ai_provider()
+
+    @ai_provider.setter
+    def ai_provider(self, provider: Optional[BaseAIProvider]) -> None:
+        self._ai_provider = provider
 
     @staticmethod
     async def process_document_extraction(file_name: str, file_bytes: bytes) -> Dict[str, Any]:
@@ -130,12 +148,82 @@ class DigitizationService:
                     mime_type=doc.mime_type
                 )
 
+                # Stage 3b: Optional AI Assistance (Gemini 3.8 Flash)
+                # Fail-Open Resilience: If disabled, missing API key, or error, deterministic pipeline continues unaffected
+                ai_result = AIInterpretationResult()
+                ai_prov = self.ai_provider
+                if ai_prov and ai_prov.is_available:
+                    try:
+                        ai_result = await ai_prov.interpret_land_record(
+                            raw_text=raw_extraction.raw_text or "",
+                            deterministic_fields=raw_extraction.extracted_fields,
+                            metadata={"document_id": str(doc.id), "file_name": doc.file_name}
+                        )
+                        if ai_result.ai_used:
+                            await audit_service.log_event(
+                                session=session,
+                                action="AI_INTERPRETATION_COMPLETED",
+                                entity_type="DOCUMENT",
+                                actor_user_id=doc.created_by,
+                                entity_id=doc.id,
+                                new_state={
+                                    "provider": ai_result.provider,
+                                    "model": ai_result.model,
+                                    "suggested_count": len(ai_result.suggested_fields),
+                                    "conflicts_count": len(ai_result.conflicts)
+                                }
+                            )
+                        elif ai_result.status == "FAILED":
+                            await audit_service.log_event(
+                                session=session,
+                                action="AI_INTERPRETATION_FAILED",
+                                entity_type="DOCUMENT",
+                                actor_user_id=doc.created_by,
+                                entity_id=doc.id,
+                                new_state={"error": ai_result.error_message}
+                            )
+                    except Exception as ai_exc:
+                        logger.warning(f"[DIGITIZATION] AI interpretation failed: {ai_exc}. Continuing deterministic flow.")
+                else:
+                    if settings.AI_ENABLED:
+                        await audit_service.log_event(
+                            session=session,
+                            action="AI_INTERPRETATION_SKIPPED",
+                            entity_type="DOCUMENT",
+                            actor_user_id=doc.created_by,
+                            entity_id=doc.id,
+                            new_state={"reason": "AI enabled but provider unavailable or missing API key"}
+                        )
+
+                # Stage 3c: Conservative Merge Policy
+                merged_fields, merged_evidences, ai_result = AIMergeService.merge(
+                    deterministic_fields=raw_extraction.extracted_fields,
+                    field_evidences=raw_extraction.structured_fields,
+                    ai_result=ai_result
+                )
+
                 # Stage 4: Persist raw ExtractionResultModel with structured fields
                 structured_dict = None
-                if raw_extraction.structured_fields:
+                if merged_evidences:
                     structured_dict = {
-                        k: v.model_dump() for k, v in raw_extraction.structured_fields.items()
+                        k: (v.model_dump() if hasattr(v, "model_dump") else v)
+                        for k, v in merged_evidences.items()
                     }
+                if ai_result.ai_used or ai_result.status != "SKIPPED":
+                    if structured_dict is None:
+                        structured_dict = {}
+                    structured_dict["_ai_metadata"] = {
+                        "ai_used": ai_result.ai_used,
+                        "provider": ai_result.provider,
+                        "model": ai_result.model,
+                        "status": ai_result.status,
+                        "suggested_fields": ai_result.suggested_fields,
+                        "conflicts": [c.model_dump() for c in ai_result.conflicts],
+                        "ambiguities": ai_result.ambiguities,
+                        "warnings": ai_result.warnings,
+                        "summary": ai_result.summary,
+                    }
+
                 cat_str = (
                     raw_extraction.confidence_category.value
                     if hasattr(raw_extraction.confidence_category, "value")
@@ -147,7 +235,7 @@ class DigitizationService:
                     document_id=doc.id,
                     provider=raw_extraction.provider,
                     raw_text=raw_extraction.raw_text,
-                    extracted_fields=raw_extraction.extracted_fields,
+                    extracted_fields=merged_fields,
                     field_confidences=raw_extraction.field_confidences,
                     structured_fields=structured_dict,
                     confidence_score=raw_extraction.confidence_score,
@@ -160,7 +248,7 @@ class DigitizationService:
                 doc = await self.doc_service.update_status(session, document_id, "EXTRACTED")
 
                 # Stage 5: Deterministic Normalization
-                normalized_fields = NormalizationService.normalize_record_data(raw_extraction.extracted_fields)
+                normalized_fields = NormalizationService.normalize_record_data(merged_fields)
 
                 # Stage 6: Record Upsert (Update existing record if re-processing, else create new)
                 existing_records = await self.record_service.list_by_document(session, doc.id)

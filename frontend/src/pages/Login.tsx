@@ -86,7 +86,7 @@ export const Login: React.FC = () => {
               color: '#f8fafc',
             }}
           >
-            BHU-ABHILEKH AI
+            Helix AI
           </h2>
           <p
             style={{

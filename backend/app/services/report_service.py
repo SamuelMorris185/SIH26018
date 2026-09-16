@@ -413,7 +413,43 @@ class VerificationReportService:
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ]))
         story.append(ext_table)
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 6))
+
+        # Optional AI Assistance Metadata Summary
+        ai_meta = (extraction.structured_fields or {}).get("_ai_metadata") if extraction and extraction.structured_fields else None
+        if ai_meta and ai_meta.get("ai_used"):
+            ai_model_name = ai_meta.get("model", "gemini-3.8-flash")
+            ai_sugg_count = len(ai_meta.get("suggested_fields", {}))
+            ai_conflicts_count = len(ai_meta.get("conflicts", []))
+
+            ai_data = [
+                [
+                    Paragraph("<b>AI Assistance:</b>", self.body_style),
+                    Paragraph("Active (Gemini 3.8 Flash)", self.body_bold),
+                    Paragraph("<b>Model Name:</b>", self.body_style),
+                    Paragraph(safe_text(ai_model_name), self.body_style),
+                ],
+                [
+                    Paragraph("<b>AI-Assisted Fields:</b>", self.body_style),
+                    Paragraph(str(ai_sugg_count), self.body_style),
+                    Paragraph("<b>Deterministic Conflicts:</b>", self.body_style),
+                    Paragraph(str(ai_conflicts_count), self.body_style),
+                ]
+            ]
+            ai_table = Table(ai_data, colWidths=[120, 140, 130, 133])
+            ai_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f0fdf4")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#86efac")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#bbf7d0")),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ]))
+            story.append(ai_table)
+            story.append(Spacer(1, 6))
+
+        story.append(Spacer(1, 4))
 
         # --- Section 3: Automated Validation Results ---
         story.append(Paragraph("3. Deterministic Validation Engine Results", self.section_heading))

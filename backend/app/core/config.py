@@ -38,9 +38,19 @@ class Settings(BaseSettings):
     CONFIDENCE_THRESHOLD_LOW: float = 0.60
     AREA_TOLERANCE_HECTARES: float = 0.01
 
+    # Phase 9: AI Intelligence Layer (Gemini Assistance)
+    AI_ENABLED: bool = False
+    AI_PROVIDER: str = "gemini"
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-3.8-flash"
+    AI_TIMEOUT_SECONDS: int = 30
+
     @model_validator(mode="after")
     def validate_configuration(self):
         self.OCR_ENGINE = self.OCR_ENGINE.strip().upper()
+        self.AI_PROVIDER = self.AI_PROVIDER.strip().lower()
+        if self.AI_TIMEOUT_SECONDS <= 0:
+            raise ValueError("AI_TIMEOUT_SECONDS must be positive")
         if self.OCR_ENGINE not in {"MOCK", "TESSERACT"}:
             raise ValueError("OCR_ENGINE must be MOCK or TESSERACT")
         if self.APP_ENV.lower() not in {"development", "test", "testing"}:
