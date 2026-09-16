@@ -9,6 +9,7 @@ import {
   Activity,
   ChevronRight,
   Map,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '../../context/NavigationContext';
@@ -34,23 +35,22 @@ export const Sidebar: React.FC = () => {
       allowedRoles: ['ADMIN', 'OPERATOR', 'REVIEWER', 'VIEWER'],
     },
     {
+      id: 'upload',
+      label: 'Document Ingestion',
+      icon: UploadCloud,
+      allowedRoles: ['ADMIN', 'OPERATOR'],
+    },
+    {
       id: 'records',
       label: 'Land Records Explorer',
       icon: FileText,
       allowedRoles: ['ADMIN', 'OPERATOR', 'REVIEWER', 'VIEWER'],
     },
     {
-      id: 'cadastral-map',
-      label: 'Cadastral GIS Map',
-      icon: Map,
-      allowedRoles: ['ADMIN', 'OPERATOR', 'REVIEWER', 'VIEWER'],
-    },
-    {
-      id: 'upload',
-
-      label: 'Document Ingestion',
-      icon: UploadCloud,
-      allowedRoles: ['ADMIN', 'OPERATOR'],
+      id: 'discrepancies',
+      label: 'Discrepancy Hub',
+      icon: AlertTriangle,
+      allowedRoles: ['ADMIN', 'REVIEWER'],
     },
     {
       id: 'review',
@@ -59,10 +59,10 @@ export const Sidebar: React.FC = () => {
       allowedRoles: ['ADMIN', 'REVIEWER'],
     },
     {
-      id: 'discrepancies',
-      label: 'Discrepancy Hub',
-      icon: AlertTriangle,
-      allowedRoles: ['ADMIN', 'REVIEWER'],
+      id: 'cadastral-map',
+      label: 'Cadastral GIS Map',
+      icon: Map,
+      allowedRoles: ['ADMIN', 'OPERATOR', 'REVIEWER', 'VIEWER'],
     },
     {
       id: 'audit',
@@ -93,7 +93,7 @@ export const Sidebar: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backgroundColor: 'rgba(10, 15, 26, 0.75)',
         minHeight: 'calc(100vh - 70px)',
       }}
     >
@@ -103,18 +103,22 @@ export const Sidebar: React.FC = () => {
             padding: '0 0.75rem 0.85rem 0.75rem',
             borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             marginBottom: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
           <span
+            className="font-mono"
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.08em',
+              letterSpacing: '0.12em',
               color: '#64748b',
             }}
           >
-            Workflow Modules
+            // WORKFLOW MODULES
           </span>
         </div>
 
@@ -129,30 +133,31 @@ export const Sidebar: React.FC = () => {
               key={item.id}
               onClick={() => navigate(item.id)}
               style={{
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '0.75rem 0.95rem',
                 borderRadius: '10px',
                 border: isActive
-                  ? '1px solid rgba(56, 189, 248, 0.4)'
+                  ? '1px solid rgba(56, 189, 248, 0.35)'
                   : '1px solid transparent',
                 background: isActive
-                  ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.15), rgba(56, 189, 248, 0.05))'
+                  ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.14), rgba(56, 189, 248, 0.03))'
                   : 'transparent',
                 color: isActive ? '#38bdf8' : '#94a3b8',
                 fontWeight: isActive ? 600 : 500,
-                fontSize: '0.88rem',
+                fontSize: '0.86rem',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.18s ease-in-out',
-                boxShadow: isActive ? '0 2px 10px rgba(56, 189, 248, 0.15)' : 'none',
+                boxShadow: isActive ? '0 0 15px rgba(56, 189, 248, 0.1)' : 'none',
               }}
               onMouseOver={(e) => {
                 if (!isActive) {
                   const btn = e.currentTarget as HTMLButtonElement;
                   btn.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
-                  btn.style.color = '#e2e8f0';
+                  btn.style.color = '#f8fafc';
                 }
               }}
               onMouseOut={(e) => {
@@ -163,6 +168,21 @@ export const Sidebar: React.FC = () => {
                 }
               }}
             >
+              {/* Active Indicator Bar */}
+              {isActive && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '20%',
+                    bottom: '20%',
+                    width: '3px',
+                    borderRadius: '0 4px 4px 0',
+                    backgroundColor: '#38bdf8',
+                    boxShadow: '0 0 8px #38bdf8',
+                  }}
+                />
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Icon size={18} color={isActive ? '#38bdf8' : '#64748b'} />
                 <span>{item.label}</span>
@@ -173,25 +193,27 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Footer / Role Context */}
+      {/* Footer / Session Authorization Card */}
       <div
+        className="glass-panel"
         style={{
-          padding: '1rem',
-          borderRadius: '10px',
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
+          padding: '0.95rem',
+          borderRadius: '12px',
+          background: 'rgba(15, 23, 42, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.07)',
           fontSize: '0.75rem',
           color: '#64748b',
         }}
       >
-        <div style={{ fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>
-          Session Authorization
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+          <ShieldCheck size={14} color="#10b981" />
+          <span>Session Authorization</span>
         </div>
         <div>
-          Access Level: <span style={{ color: '#38bdf8', fontWeight: 600 }}>{role || 'PUBLIC'}</span>
+          Level: <span className="font-mono" style={{ color: '#38bdf8', fontWeight: 600 }}>{role || 'PUBLIC'}</span>
         </div>
-        <div style={{ fontSize: '0.7rem', marginTop: '4px', opacity: 0.8 }}>
-          Governed under Digital India Land Records Modernization Programme (DILRMP)
+        <div className="font-mono" style={{ fontSize: '0.68rem', marginTop: '6px', opacity: 0.75, color: '#64748b' }}>
+          DILRMP Standards Compliant
         </div>
       </div>
     </aside>

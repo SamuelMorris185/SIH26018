@@ -25,6 +25,40 @@ from app.api.dependencies.auth import get_current_user, require_role
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
+@router.get('/{document_id}/analysis-preview')
+async def analysis_preview(document_id: uuid.UUID, page: int = Query(1, ge=1),
+    current_user: UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)):
+    """Generate one corrected grayscale copy on demand. Never persist variants or expose paths."""
+    import io
+    import anyio
+    from app.models.extraction import ExtractionResultModel
+    from app.services.extraction.ocr_pipeline import image_pages
+    from app.services.extraction.image_analysis import analyze_quality, correct_image
+    from app.core.exceptions import ExtractionProcessingError
+    doc = await document_service.get_document(session, document_id)
+    document_service.check_document_access(doc, current_user)
+    data = await document_service.storage.read_file(doc.file_path)
+    extraction = (await session.execute(select(ExtractionResultModel).where(ExtractionResultModel.document_id == document_id)
+        .order_by(desc(ExtractionResultModel.extracted_at)).limit(1))).scalar_one_or_none()
+    analysis = (extraction.structured_fields or {}).get('_document_analysis', {}) if extraction else {}
+    rotation = next((p['preprocessing'].get('orientation_degrees',0) for p in analysis.get('pages',[]) if p['page']==page),0)
+    def render():
+        try:
+            pages = image_pages(data,doc.mime_type == 'application/pdf' or doc.file_name.lower().endswith('.pdf'))
+            try:
+                for n,image,_ in pages:
+                    if n != page: continue
+                    if image is None: raise ExtractionProcessingError('Digital PDF text has no enhanced raster preview; view the original document.')
+                    corrected,_ = correct_image(image,analyze_quality(image))
+                    if rotation: corrected=corrected.rotate(-rotation,expand=True,fillcolor=255)
+                    buffer=io.BytesIO();corrected.save(buffer,format='PNG');return buffer.getvalue()
+            finally: pages.close()
+            raise ExtractionProcessingError('Requested page is unavailable.')
+        except ExtractionProcessingError: raise
+        except Exception as exc: raise ExtractionProcessingError('Enhanced preview could not be generated safely.') from exc
+    return Response(content=await anyio.to_thread.run_sync(render),media_type='image/png',headers={'Cache-Control':'no-store'})
+
+
 @router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),

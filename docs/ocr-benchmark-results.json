@@ -1,0 +1,451 @@
+[
+  {
+    "case": "clean",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.95,
+    "seconds": 0.887,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "clean",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.942,
+    "seconds": 2.997,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "rotation",
+    "version": "before",
+    "field_accuracy": 0.857,
+    "critical_accuracy": 0.667,
+    "confidence": 0.88,
+    "seconds": 1.574,
+    "incorrect_fields": [
+      "khasra_number",
+      "area_in_hectares"
+    ],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "rotation",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.944,
+    "seconds": 2.887,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [
+          "deskewed"
+        ],
+        "deskew_angle": -4.99,
+        "original_size": [
+          1686,
+          1186
+        ],
+        "corrected_size": [
+          1784,
+          1330
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "perspective",
+    "version": "before",
+    "field_accuracy": 0.929,
+    "critical_accuracy": 1.0,
+    "confidence": 0.92,
+    "seconds": 1.409,
+    "incorrect_fields": [
+      "patta_number"
+    ],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "perspective",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.944,
+    "seconds": 2.652,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [
+          "perspective_corrected"
+        ],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1529,
+          954
+        ],
+        "boundary_confidence": "conservative_quad",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "blur",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.95,
+    "seconds": 1.243,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "blur",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.943,
+    "seconds": 2.415,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "dark",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.94,
+    "seconds": 1.25,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "dark",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.944,
+    "seconds": 2.365,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "bright",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.94,
+    "seconds": 1.247,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "bright",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.945,
+    "seconds": 2.387,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "contrast",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.95,
+    "seconds": 1.463,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "contrast",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.943,
+    "seconds": 1.792,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "noise",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.95,
+    "seconds": 1.044,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "noise",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.943,
+    "seconds": 1.673,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "jpeg",
+    "version": "before",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.94,
+    "seconds": 1.011,
+    "incorrect_fields": [],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "jpeg",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.943,
+    "seconds": 1.96,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 0
+      }
+    ]
+  },
+  {
+    "case": "rotation90",
+    "version": "before",
+    "field_accuracy": 0.071,
+    "critical_accuracy": 0.167,
+    "confidence": 0.27,
+    "seconds": 1.544,
+    "incorrect_fields": [
+      "state",
+      "district",
+      "tehsil",
+      "village",
+      "khasra_number",
+      "khata_number",
+      "area_in_hectares",
+      "owner_name",
+      "co_owners",
+      "patta_number",
+      "registration_number",
+      "mutation_number",
+      "document_date"
+    ],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "rotation90",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.943,
+    "seconds": 2.22,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [
+          "rescaled",
+          "orientation_corrected"
+        ],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1050,
+          1600
+        ],
+        "corrected_size": [
+          1600,
+          2438
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 90
+      }
+    ]
+  },
+  {
+    "case": "rotation180",
+    "version": "before",
+    "field_accuracy": 0.071,
+    "critical_accuracy": 0.167,
+    "confidence": 0.31,
+    "seconds": 0.937,
+    "incorrect_fields": [
+      "state",
+      "district",
+      "tehsil",
+      "village",
+      "khasra_number",
+      "khata_number",
+      "area_in_hectares",
+      "owner_name",
+      "co_owners",
+      "patta_number",
+      "registration_number",
+      "mutation_number",
+      "document_date"
+    ],
+    "requires_review": null,
+    "corrections": []
+  },
+  {
+    "case": "rotation180",
+    "version": "after",
+    "field_accuracy": 1.0,
+    "critical_accuracy": 1.0,
+    "confidence": 0.942,
+    "seconds": 1.467,
+    "incorrect_fields": [],
+    "requires_review": false,
+    "corrections": [
+      {
+        "operations": [
+          "orientation_corrected"
+        ],
+        "deskew_angle": 0.0,
+        "original_size": [
+          1600,
+          1050
+        ],
+        "corrected_size": [
+          1600,
+          1050
+        ],
+        "boundary_confidence": "not_detected",
+        "orientation_degrees": 180
+      }
+    ]
+  }
+]

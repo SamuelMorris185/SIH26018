@@ -34,6 +34,9 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
       style={{
         position: 'fixed',
         inset: 0,
@@ -44,6 +47,7 @@ export const Modal: React.FC<ModalProps> = ({
         padding: '1.5rem',
         backgroundColor: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
+        animation: 'slideIn .2s ease-out',
       }}
       onClick={onClose}
     >

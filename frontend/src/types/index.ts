@@ -44,6 +44,10 @@ export interface DocumentPaginatedList {
 export type ConfidenceCategory = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface FieldExtractionEvidence {
+  supporting_passes?: string[];
+  alternatives?: { value: string; confidence: number; passes: string[] }[];
+  requires_review?: boolean;
+  page_numbers?: number[];
   field: string;
   value: any;
   normalized_value?: any;
@@ -75,6 +79,7 @@ export interface AIMetadata {
 }
 
 export interface ExtractionResult {
+  analysis?: DocumentAnalysisResult | null;
   id: string;
   document_id: string;
   provider: string;
@@ -366,5 +371,16 @@ export interface JobPaginatedList {
   page: number;
   limit: number;
   data: Job[];
+}
+
+export interface DocumentAnalysisResult {
+  version: string; languages: string[]; missing_languages: string[];
+  passes: {id: string;page:number;confidence:number}[];
+  elapsed_seconds: number; requires_manual_review: boolean; review_reasons: string[];
+  pages: {page:number; input_type:string;
+    quality: null | {quality_score:number;blur_score:number;brightness_score:number;contrast_score:number;resolution_score:number;glare_score:number;skew_angle:number;issues:string[];recommended_action:string};
+    preprocessing: {operations:string[];orientation_degrees?:number};
+    authenticity: {risk_level:string;risk_score:number;assessed?:boolean;signals:{code:string;explanation:string;evidence:Record<string,unknown>}[];disclaimer:string;limitations:string[]};
+  }[];
 }
 

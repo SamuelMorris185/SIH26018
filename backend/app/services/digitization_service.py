@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.models.job import JobModel
 
 from app.core.logging import logger
+from app.core.config import settings
 from app.core.exceptions import (
     DocumentNotFoundError,
     MissingFileError,
@@ -159,31 +160,42 @@ class DigitizationService:
                             deterministic_fields=raw_extraction.extracted_fields,
                             metadata={"document_id": str(doc.id), "file_name": doc.file_name}
                         )
-                        if ai_result.ai_used:
-                            await audit_service.log_event(
-                                session=session,
-                                action="AI_INTERPRETATION_COMPLETED",
-                                entity_type="DOCUMENT",
-                                actor_user_id=doc.created_by,
-                                entity_id=doc.id,
-                                new_state={
-                                    "provider": ai_result.provider,
-                                    "model": ai_result.model,
-                                    "suggested_count": len(ai_result.suggested_fields),
-                                    "conflicts_count": len(ai_result.conflicts)
-                                }
-                            )
-                        elif ai_result.status == "FAILED":
-                            await audit_service.log_event(
-                                session=session,
-                                action="AI_INTERPRETATION_FAILED",
-                                entity_type="DOCUMENT",
-                                actor_user_id=doc.created_by,
-                                entity_id=doc.id,
-                                new_state={"error": ai_result.error_message}
-                            )
-                    except Exception as ai_exc:
-                        logger.warning(f"[DIGITIZATION] AI interpretation failed: {ai_exc}. Continuing deterministic flow.")
+                    except Exception:
+                        logger.warning("[DIGITIZATION] AI interpretation failed. Continuing deterministic flow.")
+                        ai_result = AIInterpretationResult(
+                            status="FAILED",
+                            error_message="AI provider failed; deterministic extraction retained.",
+                        )
+
+                    # Merge before auditing so conflict counts reflect the persisted result.
+                    if ai_result.ai_used:
+                        merged_fields, merged_evidences, ai_result = AIMergeService.merge(
+                            raw_extraction.extracted_fields,
+                            raw_extraction.structured_fields,
+                            ai_result,
+                        )
+                        await audit_service.log_event(
+                            session=session,
+                            action="AI_INTERPRETATION_COMPLETED",
+                            entity_type="DOCUMENT",
+                            actor_user_id=doc.created_by,
+                            entity_id=doc.id,
+                            new_state={
+                                "provider": ai_result.provider,
+                                "model": ai_result.model,
+                                "suggested_count": len(ai_result.suggested_fields),
+                                "conflicts_count": len(ai_result.conflicts)
+                            }
+                        )
+                    elif ai_result.status == "FAILED":
+                        await audit_service.log_event(
+                            session=session,
+                            action="AI_INTERPRETATION_FAILED",
+                            entity_type="DOCUMENT",
+                            actor_user_id=doc.created_by,
+                            entity_id=doc.id,
+                            new_state={"error": ai_result.error_message}
+                        )
                 else:
                     if settings.AI_ENABLED:
                         await audit_service.log_event(
@@ -195,12 +207,20 @@ class DigitizationService:
                             new_state={"reason": "AI enabled but provider unavailable or missing API key"}
                         )
 
-                # Stage 3c: Conservative Merge Policy
-                merged_fields, merged_evidences, ai_result = AIMergeService.merge(
-                    deterministic_fields=raw_extraction.extracted_fields,
-                    field_evidences=raw_extraction.structured_fields,
-                    ai_result=ai_result
-                )
+                # Preserve deterministic fields when assistance was not used.
+                if not ai_result.ai_used:
+                    merged_fields = dict(raw_extraction.extracted_fields)
+                    merged_evidences = dict(raw_extraction.structured_fields or {})
+                merged_confidences = dict(raw_extraction.field_confidences or {})
+                merged_confidences.update({
+                    name: evidence.confidence for name, evidence in merged_evidences.items()
+                })
+                if raw_extraction.analysis:
+                    # Keep AI suggestions in their metadata; literal OCR remains authoritative
+                    # for analyzed documents, including absent legal fields.
+                    merged_fields = dict(raw_extraction.extracted_fields)
+                    merged_evidences = dict(raw_extraction.structured_fields or {})
+                    merged_confidences = dict(raw_extraction.field_confidences or {})
 
                 # Stage 4: Persist raw ExtractionResultModel with structured fields
                 structured_dict = None
@@ -224,6 +244,21 @@ class DigitizationService:
                         "summary": ai_result.summary,
                     }
 
+                if raw_extraction.analysis:
+                    structured_dict = structured_dict or {}
+                    structured_dict['_document_analysis'] = raw_extraction.analysis
+                    for action in ('DOCUMENT_QUALITY_ANALYZED', 'OCR_PREPROCESSING_COMPLETED', 'OCR_ANALYSIS_COMPLETED', 'DOCUMENT_AUTHENTICITY_ANALYZED'):
+                        await audit_service.log_event(session=session, action=action, entity_type='DOCUMENT',
+                            actor_user_id=doc.created_by, entity_id=doc.id,
+                            new_state={'analysis_version': raw_extraction.analysis['version'],
+                                       'requires_manual_review': raw_extraction.analysis['requires_manual_review'],
+                                       'page_count': len(raw_extraction.analysis['pages'])})
+                    if any(p.get('quality',{}).get('recommended_action') == 'RECAPTURE_RECOMMENDED'
+                           for p in raw_extraction.analysis['pages'] if p.get('quality')):
+                        await audit_service.log_event(session=session, action='DOCUMENT_RECAPTURE_RECOMMENDED',
+                            entity_type='DOCUMENT', actor_user_id=doc.created_by, entity_id=doc.id,
+                            new_state={'reason':'Image quality requires reviewer attention'})
+
                 cat_str = (
                     raw_extraction.confidence_category.value
                     if hasattr(raw_extraction.confidence_category, "value")
@@ -236,7 +271,7 @@ class DigitizationService:
                     provider=raw_extraction.provider,
                     raw_text=raw_extraction.raw_text,
                     extracted_fields=merged_fields,
-                    field_confidences=raw_extraction.field_confidences,
+                    field_confidences=merged_confidences,
                     structured_fields=structured_dict,
                     confidence_score=raw_extraction.confidence_score,
                     confidence_category=cat_str,
@@ -249,6 +284,11 @@ class DigitizationService:
 
                 # Stage 5: Deterministic Normalization
                 normalized_fields = NormalizationService.normalize_record_data(merged_fields)
+                if raw_extraction.analysis:
+                    if not merged_fields.get('land_classification'):
+                        normalized_fields['land_classification'] = ''
+                    if not merged_fields.get('area_unit'):
+                        normalized_fields['area_in_hectares'] = 0.0  # existing non-null schema; raw value remains in evidence
 
                 # Stage 6: Record Upsert (Update existing record if re-processing, else create new)
                 existing_records = await self.record_service.list_by_document(session, doc.id)
@@ -364,6 +404,14 @@ class DigitizationService:
 
                 # Refresh record status in case comparison marked it FLAGGED
                 await session.refresh(record_model)
+                if raw_extraction.analysis and raw_extraction.analysis.get('requires_manual_review'):
+                    record_model.status = 'FLAGGED'
+                    record_model.review_status = 'PENDING_REVIEW'
+                    await session.flush()
+                    await audit_service.log_event(session=session, action='RECORD_FLAGGED', entity_type='LAND_RECORD',
+                        actor_user_id=doc.created_by, entity_id=record_model.id,
+                        new_state={'status':'FLAGGED','review_status':'PENDING_REVIEW',
+                                   'reasons':raw_extraction.analysis['review_reasons']})
 
                 # Stage 9: Update Document final status (VALIDATED vs FLAGGED)
                 is_record_flagged = (

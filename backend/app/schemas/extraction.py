@@ -35,6 +35,10 @@ class FieldExtractionEvidence(BaseModel):
     category: ConfidenceCategory = ConfidenceCategory.HIGH
     source: str = "ocr"
     evidence: Optional[str] = None
+    supporting_passes: List[str] = Field(default_factory=list)
+    alternatives: List[Dict[str, Any]] = Field(default_factory=list)
+    requires_review: bool = False
+    page_numbers: List[int] = Field(default_factory=list)
 
 class StructuredLandRecordExtraction(BaseModel):
     """
@@ -77,9 +81,11 @@ class ExtractionResultResponse(BaseModel):
     status: str = Field(default="SUCCESS", json_schema_extra={"example": "SUCCESS"})
     extracted_at: datetime
     ai_metadata: Optional[Dict[str, Any]] = None
+    analysis: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
     def restore_low_confidence_fields(self):
+        self.analysis = (self.structured_fields or {}).get("_document_analysis", self.analysis)
         self.low_confidence_fields = [
             name for name, score in (self.field_confidences or {}).items()
             if score < settings.CONFIDENCE_THRESHOLD_MEDIUM
@@ -90,6 +96,7 @@ class ExtractionResultResponse(BaseModel):
         return self
 
 class RawExtractionPayload(BaseModel):
+    analysis: Optional[Dict[str, Any]] = None
     document_id: UUID
     provider: str = "MOCK_OCR_V1"
     raw_text: Optional[str] = None

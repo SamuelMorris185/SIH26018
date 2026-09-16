@@ -128,88 +128,10 @@ class TesseractOCRProvider(BaseExtractionProvider):
         )
 
     def _extract_document_fields(self, document_id, file_bytes, file_name, mime_type) -> RawExtractionPayload:
-        logger.info(f"[TESSERACT_OCR] Starting real OCR extraction for '{file_name}' (doc_id={document_id}, size={len(file_bytes)} bytes)")
-
-        if not file_bytes or len(file_bytes) == 0:
-            raise ExtractionProcessingError("Cannot extract fields from an empty (0 bytes) document.")
-
-        # Check binary availability
         if not self.is_available:
-            err_msg = (
-                "Tesseract OCR executable not detected in system PATH or TESSERACT_CMD_PATH. "
-                "Please install Tesseract OCR locally (e.g. via 'scoop install tesseract' or 'winget install UB-Mannheim.TesseractOCR') "
-                "or configure OCR_ENGINE=MOCK in .env for development."
-            )
-            logger.error(f"[TESSERACT_OCR] Engine unavailable: {err_msg}")
-            raise OCREngineUnavailableError(self.provider_name, err_msg)
-
-        import pytesseract
-
-        raw_text = ""
-        word_confidences: List[float] = []
-
-        try:
-            # Route 1: PDF Document
-            if mime_type == "application/pdf" or file_name.lower().endswith(".pdf"):
-                raw_text, word_confidences = self._extract_pdf(file_bytes)
-            # Route 2: Raster Image (PNG, JPEG, TIFF, BMP, WEBP)
-            else:
-                try:
-                    orig_image = Image.open(io.BytesIO(file_bytes))
-                except Exception as img_exc:
-                    logger.error(f"[TESSERACT_OCR] Corrupt or unreadable image file '{file_name}': {img_exc}")
-                    raise ExtractionProcessingError(f"Corrupt or unreadable image file: {str(img_exc)}")
-
-                # Preprocess image for optimal character recognition
-                preprocessed = self._preprocess_image(orig_image)
-                raw_text = pytesseract.image_to_string(preprocessed, config="--oem 3 --psm 3")
-
-                # Word-level OCR confidence extraction
-                data = pytesseract.image_to_data(preprocessed, output_type=pytesseract.Output.DICT)
-                for conf in data.get("conf", []):
-                    try:
-                        c_val = float(conf)
-                        if c_val >= 0:  # -1 indicates non-word elements
-                            word_confidences.append(c_val / 100.0)
-                    except (ValueError, TypeError):
-                        pass
-
-        except ExtractionProcessingError:
-            raise
-        except Exception as exc:
-            logger.error(f"[TESSERACT_OCR] Extraction execution error on '{file_name}': {str(exc)}", exc_info=True)
-            raise ExtractionProcessingError(f"OCR execution failed: {str(exc)}")
-
-        # Calculate average base OCR confidence
-        if word_confidences:
-            avg_conf = round(sum(word_confidences) / len(word_confidences), 2)
-        else:
-            avg_conf = 0.85 if len(raw_text.strip()) > 30 else 0.35
-
-        # Parse structured land record fields from the extracted OCR text
-        extracted_fields, field_confidences, structured_fields, low_conf_fields = self._parse_land_record_text(
-            raw_text, avg_conf
-        )
-
-        overall_conf = max(0.0, min(1.0, float(avg_conf)))
-        overall_category = categorize_confidence(
-            overall_conf,
-            settings.CONFIDENCE_THRESHOLD_HIGH,
-            settings.CONFIDENCE_THRESHOLD_MEDIUM
-        )
-
-        return RawExtractionPayload(
-            document_id=document_id,
-            provider=self.provider_name,
-            raw_text=raw_text,
-            extracted_fields=extracted_fields,
-            field_confidences=field_confidences,
-            structured_fields=structured_fields,
-            confidence_score=overall_conf,
-            confidence_category=overall_category,
-            low_confidence_fields=low_conf_fields,
-            status="SUCCESS"
-        )
+            raise OCREngineUnavailableError(self.provider_name, 'Tesseract OCR engine is unavailable.')
+        from app.services.extraction.ocr_pipeline import extract
+        return extract(self, document_id, file_bytes, file_name, mime_type)
 
     def _extract_pdf(self, file_bytes: bytes) -> Tuple[str, List[float]]:
         """
@@ -308,6 +230,21 @@ class TesseractOCRProvider(BaseExtractionProvider):
             "document_date": r"(?i)(?:Date\s*of\s*Registration|Registration\s*Date|Document\s*Date|Tarikh|Date)\s*[:\-]?\s*([\d]{1,4}[\/\-\.][\d]{1,2}[\/\-\.][\d]{1,4})"
         }
 
+        # Anchor field markers to line starts or explicit column separators. Never match
+        # "Owner" inside "Co-owner" or use an unlabelled person-like line as an owner.
+        markers = {
+            'state': r'State|Rajya|Prant', 'district': r'District|Dist\.?|Jila|Zilla',
+            'tehsil': r'Tehsil|Taluka|Taluk|Tahsil|Mandal', 'village': r'Village|Mauza|Gram|Gaon',
+            'khasra_number': r'Khasra|Survey|Gat', 'khata_number': r'Khatauni|Khatoni|Khata|Account',
+            'area_in_hectares': r'Land\s*Area|Kshetrafal|Area|Rakba|Extent',
+            'land_classification': r'Land\s*Type|Classification|Kism|Varg',
+            'owner_name': r'Name\s*of\s*Owner|Owner\s*Name|Patta\s*Dharak|Bhumiswami|Khatedar|Holder|Owner',
+            'co_owners': r'Co[- ]owners?|Sah[- ]Khatedar|Joint\s*Holders?|Hissedar',
+            'patta_number': r'Patta(?!\s*Dharak)', 'registration_number': r'Registration(?!\s*Date)|Dastavej|Reg\.?',
+            'mutation_number': r'Mutation|Namantaran|Dakhil\s*Kharij',
+            'document_date': r'Date\s*of\s*Registration|Registration\s*Date|Document\s*Date|Tarikh|Date',
+        }
+        patterns = {name: rf'(?im)(?:^|\|)[ \t]*(?:{marker})[ \t]*(?:No\.?|Number)?[ \t]*[:\-]?[ \t]*([^\n\r|]+)' for name,marker in markers.items()}
         extracted_fields: Dict[str, Any] = {}
         field_confidences: Dict[str, float] = {}
         structured_fields: Dict[str, FieldExtractionEvidence] = {}
@@ -319,6 +256,9 @@ class TesseractOCRProvider(BaseExtractionProvider):
                 raw_val = match.group(1).strip()
                 match_conf = min(1.0, round(base_confidence * 0.98, 2))
                 evidence_str = match.group(0).strip()
+                candidates = {m.group(1).strip() for m in re.finditer(regex,text)}
+                if len(candidates)>1:
+                    match_conf = min(match_conf,.49)
             else:
                 raw_val = ""
                 match_conf = 0.0
@@ -379,7 +319,4 @@ class TesseractOCRProvider(BaseExtractionProvider):
 
         # Defaults for mandatory fields only when text was extracted but field was absent
         # Missing geography stays missing so mandatory-field validation can flag it.
-        if not extracted_fields.get("land_classification") and len(text.strip()) > 20:
-            extracted_fields["land_classification"] = "Agricultural"
-
         return extracted_fields, field_confidences, structured_fields, low_confidence_fields

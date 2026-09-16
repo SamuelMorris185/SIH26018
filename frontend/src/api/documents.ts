@@ -7,6 +7,10 @@ import {
 } from '../types';
 
 export const documentsApi = {
+  async fetchAnalysisPreview(documentId: string, page = 1): Promise<Blob> {
+    const { blob } = await apiClient.getBlob(`/api/v1/documents/${documentId}/analysis-preview?page=${page}`);
+    return blob;
+  },
   async uploadAndProcess(
     file: File,
     docType: string = 'JAMABANDI'

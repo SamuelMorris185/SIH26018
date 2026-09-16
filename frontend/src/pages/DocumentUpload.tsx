@@ -8,6 +8,7 @@ import {
   Cpu,
   ShieldCheck,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { documentsApi } from '../api/documents';
 import { useNavigation } from '../context/NavigationContext';
@@ -15,6 +16,8 @@ import { useToast } from '../context/ToastContext';
 import { DigitizationPipelineResult } from '../types';
 import { ConfidenceBadge } from '../components/confidence/ConfidenceBadge';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { CameraCapture } from '../components/document/CameraCapture';
+import { DocumentAnalysis } from '../components/document/DocumentAnalysis';
 
 export const DocumentUpload: React.FC = () => {
   const { navigate } = useNavigation();
@@ -28,14 +31,15 @@ export const DocumentUpload: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [result, setResult] = useState<DigitizationPipelineResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
   const maxSizeBytes = 10 * 1024 * 1024; // 10MB
 
   const steps = [
-    'Secure Document Upload & Verification',
+    'Secure Document Ingestion & Verification',
     'Image Preprocessing (Grayscale, Contrast, Rescale)',
-    'Configured OCR Extraction Engine',
+    'Configured Multi-Lingual OCR Extraction Engine',
     'Deterministic Revenue Field Normalization',
     'Statutory Rule-Based Validation Check',
     'Parcel Identity Cross-Examination & Discrepancy Match',
@@ -91,19 +95,12 @@ export const DocumentUpload: React.FC = () => {
     setResult(null);
     setCurrentStep(0);
 
-    // Simulate animated step progression while backend processes
-    const stepInterval = setInterval(() => {
-      setCurrentStep((prev) => (prev < 5 ? prev + 1 : prev));
-    }, 600);
-
     try {
       const pipelineResult = await documentsApi.uploadAndProcess(selectedFile, docType);
-      clearInterval(stepInterval);
       setCurrentStep(6);
       setResult(pipelineResult);
-      success('Document digitized and validated successfully!');
+      success('Document processed. Check the analysis and review requirements below.');
     } catch (err: any) {
-      clearInterval(stepInterval);
       const msg = err?.message || 'Pipeline processing failed';
       setError(msg);
       toastError(msg);
@@ -118,11 +115,11 @@ export const DocumentUpload: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem', maxWidth: '960px', margin: '0 auto' }}>
       {/* Page Header */}
       <div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
-          Document Ingestion & Processing Gateway
+        <h2 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+          Document Ingestion &amp; Processing Gateway
         </h2>
-        <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>
-          Upload scanned revenue records or digital land titles for automated OCR parsing and validation
+        <p style={{ fontSize: '0.84rem', color: '#94a3b8', marginTop: '3px' }}>
+          Upload scanned revenue records or digital land titles for automated multi-lingual OCR parsing and cross-validation
         </p>
       </div>
 
@@ -134,26 +131,33 @@ export const DocumentUpload: React.FC = () => {
             alignItems: 'center',
             gap: '0.75rem',
             padding: '1rem',
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            border: '1px solid rgba(244, 63, 94, 0.4)',
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
             borderRadius: '12px',
-            color: '#fecdd3',
+            color: '#f87171',
           }}
         >
-          <AlertCircle size={20} color="#f43f5e" style={{ flexShrink: 0 }} />
+          <AlertCircle size={20} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: '0.88rem' }}>{error}</span>
         </div>
       )}
 
+      {!result && !isProcessing && <div className="scanner-actions">
+        <button type="button" className="scanner-button" onClick={()=>{setCameraOpen(false);fileInputRef.current?.click();}}>Upload Document</button>
+        <button type="button" className="scanner-button primary" onClick={()=>setCameraOpen(true)}>Take Photo</button>
+        {selectedFile && <button type="button" className="scanner-button" onClick={()=>{setSelectedFile(null);if(fileInputRef.current)fileInputRef.current.value='';}}>Remove selected file</button>}
+      </div>}
+      {cameraOpen && <CameraCapture onUse={validateAndSelectFile} onClose={()=>setCameraOpen(false)}/>}
+      {result && <DocumentAnalysis analysis={result.extraction.analysis}/>}
       {/* Upload Zone & Config Card */}
       {!result && (
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="bento-card" style={{ padding: '2rem' }}>
           {/* Document Type Selector */}
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1.75rem' }}>
             <label
               style={{
                 display: 'block',
-                fontSize: '0.82rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
                 color: '#cbd5e1',
                 marginBottom: '0.5rem',
@@ -166,15 +170,7 @@ export const DocumentUpload: React.FC = () => {
               disabled={isProcessing}
               onChange={(e) => setDocType(e.target.value)}
               style={{
-                width: '100%',
-                maxWidth: '360px',
-                padding: '0.65rem 0.85rem',
-                backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '8px',
-                color: '#f8fafc',
-                fontSize: '0.88rem',
-                outline: 'none',
+                maxWidth: '380px',
               }}
             >
               <option value="JAMABANDI">Jamabandi (Record of Rights / RoR)</option>
@@ -191,17 +187,18 @@ export const DocumentUpload: React.FC = () => {
             onDragLeave={handleDragLeave}
             onClick={() => !isProcessing && fileInputRef.current?.click()}
             style={{
-              border: `2px dashed ${isDragging ? '#38bdf8' : selectedFile ? '#10b981' : 'rgba(255, 255, 255, 0.15)'}`,
-              borderRadius: '16px',
-              padding: '3rem 2rem',
+              border: `2px dashed ${isDragging ? '#38bdf8' : selectedFile ? '#10b981' : 'rgba(51, 65, 85, 0.6)'}`,
+              borderRadius: '18px',
+              padding: '3.5rem 2rem',
               textAlign: 'center',
               backgroundColor: isDragging
                 ? 'rgba(56, 189, 248, 0.08)'
                 : selectedFile
                 ? 'rgba(16, 185, 129, 0.04)'
-                : 'rgba(15, 23, 42, 0.4)',
+                : 'rgba(15, 23, 42, 0.5)',
               cursor: isProcessing ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
+              transition: 'all 0.2s ease-in-out',
+              boxShadow: isDragging ? '0 0 25px rgba(56, 189, 248, 0.2)' : 'none',
             }}
           >
             <input
@@ -222,6 +219,7 @@ export const DocumentUpload: React.FC = () => {
                 height: '64px',
                 borderRadius: '16px',
                 backgroundColor: selectedFile ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.1)',
+                border: selectedFile ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -237,11 +235,11 @@ export const DocumentUpload: React.FC = () => {
 
             {selectedFile ? (
               <div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#f8fafc' }}>
+                <div style={{ fontWeight: 700, fontSize: '1.15rem', color: '#f8fafc' }}>
                   {selectedFile.name}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#34d399', marginTop: '4px' }}>
-                  {(selectedFile.size / 1024).toFixed(1)} KB • Ready for Automated Processing
+                <div className="font-mono" style={{ fontSize: '0.8rem', color: '#34d399', marginTop: '4px' }}>
+                  {(selectedFile.size / 1024).toFixed(1)} KB • Ready for Automated AI Processing
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px' }}>
                   Click or drop a different file to replace
@@ -249,11 +247,11 @@ export const DocumentUpload: React.FC = () => {
               </div>
             ) : (
               <div>
-                <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#f8fafc' }}>
-                  Drag & Drop Land Document Here
+                <div style={{ fontWeight: 700, fontSize: '1.15rem', color: '#f8fafc' }}>
+                  Drag &amp; Drop Land Document Here
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '6px' }}>
-                  or click to browse your local device
+                  or click to browse local device files
                 </div>
                 <div
                   style={{
@@ -261,16 +259,17 @@ export const DocumentUpload: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    marginTop: '1rem',
+                    marginTop: '1.25rem',
                   }}
                 >
-                  {['PDF', 'PNG', 'JPEG', 'TIFF', 'BMP'].map((ext) => (
+                  {['PDF', 'PNG', 'JPEG', 'TIFF'].map((ext) => (
                     <span
                       key={ext}
+                      className="font-mono"
                       style={{
                         fontSize: '0.7rem',
                         fontWeight: 600,
-                        background: 'rgba(255, 255, 255, 0.05)',
+                        background: 'rgba(255, 255, 255, 0.04)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         padding: '2px 8px',
                         borderRadius: '4px',
@@ -281,8 +280,8 @@ export const DocumentUpload: React.FC = () => {
                     </span>
                   ))}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '8px' }}>
-                  Maximum file size: 10 MB per document
+                <div className="font-mono" style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '8px' }}>
+                  Max size: 10 MB per document
                 </div>
               </div>
             )}
@@ -293,20 +292,10 @@ export const DocumentUpload: React.FC = () => {
             <button
               onClick={executePipeline}
               disabled={!selectedFile || isProcessing}
+              className="btn btn-primary"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '0.85rem 1.75rem',
-                backgroundColor: !selectedFile || isProcessing ? '#1e293b' : '#0284c7',
-                color: !selectedFile || isProcessing ? '#64748b' : '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
+                padding: '0.75rem 1.75rem',
                 fontSize: '0.92rem',
-                fontWeight: 700,
-                cursor: !selectedFile || isProcessing ? 'not-allowed' : 'pointer',
-                boxShadow: !selectedFile || isProcessing ? 'none' : '0 4px 15px rgba(2, 132, 199, 0.4)',
-                transition: 'all 0.2s',
               }}
             >
               {isProcessing ? (
@@ -327,18 +316,18 @@ export const DocumentUpload: React.FC = () => {
 
       {/* Processing Animation Tracker */}
       {isProcessing && (
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="bento-card" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
             <Loader2 size={24} color="#38bdf8" className="animate-spin" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
-              Executing Real Intelligent Land Pipeline
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
+              Processing document — waiting for server results
             </h3>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {steps.map((step, idx) => {
-              const isDone = currentStep > idx;
-              const isCurrent = currentStep === idx;
+              const isDone = false;
+              const isCurrent = false;
 
               return (
                 <div
@@ -348,7 +337,7 @@ export const DocumentUpload: React.FC = () => {
                     alignItems: 'center',
                     gap: '1rem',
                     padding: '0.75rem 1rem',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     backgroundColor: isCurrent
                       ? 'rgba(56, 189, 248, 0.08)'
                       : isDone
@@ -379,7 +368,7 @@ export const DocumentUpload: React.FC = () => {
                     style={{
                       fontSize: '0.88rem',
                       fontWeight: isCurrent ? 700 : 500,
-                      color: isDone ? '#e2e8f0' : isCurrent ? '#38bdf8' : '#64748b',
+                      color: isDone ? '#f8fafc' : isCurrent ? '#38bdf8' : '#64748b',
                     }}
                   >
                     {step}
@@ -394,11 +383,11 @@ export const DocumentUpload: React.FC = () => {
       {/* Success Result View */}
       {result && (
         <div
-          className="glass-panel"
+          className="bento-card"
           style={{
             padding: '2rem',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            backgroundColor: 'rgba(6, 78, 59, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -406,8 +395,9 @@ export const DocumentUpload: React.FC = () => {
               style={{
                 width: '48px',
                 height: '48px',
-                borderRadius: '12px',
+                borderRadius: '14px',
                 backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -420,7 +410,7 @@ export const DocumentUpload: React.FC = () => {
                 Digitization Pipeline Completed
               </h3>
               <p style={{ fontSize: '0.82rem', color: '#34d399', marginTop: '2px' }}>
-                Document successfully ingested, parsed with Tesseract OCR, normalized, and validated
+                Processing completed. Validation and review outcomes are shown below.
               </p>
             </div>
           </div>
@@ -434,35 +424,36 @@ export const DocumentUpload: React.FC = () => {
               marginBottom: '1.5rem',
             }}
           >
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Overall Confidence</div>
-              <div style={{ marginTop: '4px' }}>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="font-mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>OVERALL CONFIDENCE</div>
+              <div style={{ marginTop: '6px' }}>
                 <ConfidenceBadge score={result.extraction.confidence_score} size="md" />
               </div>
             </div>
 
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Validation Status</div>
-              <div style={{ marginTop: '4px' }}>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="font-mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>VALIDATION STATUS</div>
+              <div style={{ marginTop: '6px' }}>
                 <StatusBadge status={newlyCreatedRecord?.status || 'VALIDATED'} size="md" />
               </div>
             </div>
 
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>OCR Engine Used</div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38bdf8', marginTop: '4px' }}>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="font-mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>OCR ENGINE USED</div>
+              <div className="font-mono" style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38bdf8', marginTop: '6px' }}>
                 {result.extraction.provider}
               </div>
             </div>
 
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '10px' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Discrepancies Detected</div>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <div className="font-mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>DISCREPANCIES DETECTED</div>
               <div
+                className="font-mono"
                 style={{
                   fontSize: '0.95rem',
                   fontWeight: 700,
                   color: result.discrepancies?.total_discrepancies ? '#fb7185' : '#34d399',
-                  marginTop: '4px',
+                  marginTop: '6px',
                 }}
               >
                 {result.discrepancies?.total_discrepancies ?? 0} Conflicts
@@ -477,16 +468,7 @@ export const DocumentUpload: React.FC = () => {
                 setResult(null);
                 setSelectedFile(null);
               }}
-              style={{
-                padding: '0.7rem 1.25rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
-                color: '#e2e8f0',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              className="btn btn-secondary"
             >
               Upload Another
             </button>
@@ -494,20 +476,7 @@ export const DocumentUpload: React.FC = () => {
             {newlyCreatedRecord && (
               <button
                 onClick={() => navigate('record-detail', { recordId: newlyCreatedRecord.id })}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '0.7rem 1.4rem',
-                  backgroundColor: '#0284c7',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#ffffff',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)',
-                }}
+                className="btn btn-primary"
               >
                 <span>View Full Record Details</span>
                 <ArrowRight size={16} />

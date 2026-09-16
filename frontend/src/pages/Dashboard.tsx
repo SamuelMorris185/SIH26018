@@ -11,6 +11,8 @@ import {
   Layers,
   ArrowUpRight,
   RefreshCw,
+  Activity,
+  ShieldAlert,
 } from 'lucide-react';
 import { systemApi } from '../api/system';
 import { documentsApi } from '../api/documents';
@@ -69,17 +71,13 @@ export const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <div style={{ height: '36px', width: '260px', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '8px' }} />
+        <div style={{ height: '32px', width: '240px', borderRadius: '8px' }} className="skeleton-shimmer" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
           {[...Array(9)].map((_, i) => (
             <div
               key={i}
-              style={{
-                height: '110px',
-                backgroundColor: 'rgba(255,255,255,0.03)',
-                borderRadius: '14px',
-                border: '1px solid rgba(255,255,255,0.05)',
-              }}
+              style={{ height: '110px', borderRadius: '16px' }}
+              className="glass-panel skeleton-shimmer"
             />
           ))}
         </div>
@@ -93,8 +91,6 @@ export const Dashboard: React.FC = () => {
       value: stats?.total_records ?? 0,
       icon: Layers,
       color: '#38bdf8',
-      bg: 'rgba(56, 189, 248, 0.1)',
-      border: 'rgba(56, 189, 248, 0.25)',
       onClick: () => navigate('records'),
     },
     {
@@ -102,17 +98,13 @@ export const Dashboard: React.FC = () => {
       value: stats?.documents_processed ?? 0,
       icon: UploadCloud,
       color: '#818cf8',
-      bg: 'rgba(129, 140, 248, 0.1)',
-      border: 'rgba(129, 140, 248, 0.25)',
       onClick: () => navigate('upload'),
     },
     {
-      title: 'Records Awaiting Review',
+      title: 'Awaiting Review',
       value: stats?.records_awaiting_review ?? 0,
       icon: Clock,
       color: '#fbbf24',
-      bg: 'rgba(251, 191, 36, 0.1)',
-      border: 'rgba(251, 191, 36, 0.25)',
       onClick: () => navigate('review'),
     },
     {
@@ -120,8 +112,6 @@ export const Dashboard: React.FC = () => {
       value: stats?.validated_records ?? 0,
       icon: CheckCircle2,
       color: '#34d399',
-      bg: 'rgba(52, 211, 153, 0.1)',
-      border: 'rgba(52, 211, 153, 0.25)',
       onClick: () => navigate('records'),
     },
     {
@@ -129,17 +119,13 @@ export const Dashboard: React.FC = () => {
       value: stats?.flagged_records ?? 0,
       icon: AlertTriangle,
       color: '#fb7185',
-      bg: 'rgba(251, 113, 133, 0.1)',
-      border: 'rgba(251, 113, 133, 0.25)',
       onClick: () => navigate('records'),
     },
     {
       title: 'Open Discrepancies',
       value: stats?.open_discrepancies ?? 0,
-      icon: AlertTriangle,
+      icon: ShieldAlert,
       color: '#f97316',
-      bg: 'rgba(249, 115, 22, 0.1)',
-      border: 'rgba(249, 115, 22, 0.25)',
       onClick: () => navigate('discrepancies'),
     },
     {
@@ -147,8 +133,6 @@ export const Dashboard: React.FC = () => {
       value: stats?.low_confidence_records ?? 0,
       icon: AlertTriangle,
       color: '#f43f5e',
-      bg: 'rgba(244, 63, 94, 0.1)',
-      border: 'rgba(244, 63, 94, 0.25)',
       onClick: () => navigate('records'),
     },
     {
@@ -156,8 +140,6 @@ export const Dashboard: React.FC = () => {
       value: stats?.approved_records ?? 0,
       icon: ThumbsUp,
       color: '#10b981',
-      bg: 'rgba(16, 185, 129, 0.1)',
-      border: 'rgba(16, 185, 129, 0.25)',
       onClick: () => navigate('records'),
     },
     {
@@ -165,8 +147,6 @@ export const Dashboard: React.FC = () => {
       value: stats?.rejected_records ?? 0,
       icon: ThumbsDown,
       color: '#e11d48',
-      bg: 'rgba(225, 29, 72, 0.1)',
-      border: 'rgba(225, 29, 72, 0.25)',
       onClick: () => navigate('records'),
     },
   ];
@@ -174,12 +154,12 @@ export const Dashboard: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
       {/* Header Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
             Land Intelligence Dashboard
           </h2>
-          <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>
+          <p style={{ fontSize: '0.84rem', color: '#94a3b8', marginTop: '3px' }}>
             Real-time telemetry, automated OCR validation, and multi-record cross-examination
           </p>
         </div>
@@ -187,19 +167,7 @@ export const Dashboard: React.FC = () => {
         <button
           onClick={() => fetchDashboardData(true)}
           disabled={refreshing}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: '#e2e8f0',
-            padding: '0.5rem 0.9rem',
-            borderRadius: '8px',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
+          className="btn btn-secondary"
         >
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           <span>Refresh Telemetry</span>
@@ -209,22 +177,24 @@ export const Dashboard: React.FC = () => {
       {/* OCR & AI System Status Banner */}
       {ocrStatus && (
         <div
-          className="glass-panel"
+          className="bento-card"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '1rem 1.5rem',
+            padding: '1.1rem 1.5rem',
             borderLeft: '4px solid #10b981',
+            background: 'rgba(15, 23, 42, 0.8)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -233,24 +203,26 @@ export const Dashboard: React.FC = () => {
               <Cpu size={22} color="#10b981" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f8fafc' }}>
                   OCR Provider: {ocrStatus.provider_name}
                 </span>
                 <span
+                  className="font-mono"
                   style={{
-                    fontSize: '0.7rem',
-                    background: 'rgba(16, 185, 129, 0.2)',
+                    fontSize: '0.68rem',
+                    background: 'rgba(16, 185, 129, 0.18)',
                     color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
                     padding: '2px 8px',
-                    borderRadius: '4px',
-                    fontWeight: 600,
+                    borderRadius: '9999px',
+                    fontWeight: 700,
                   }}
                 >
                   ONLINE (100% OFFLINE OPERATIONAL)
                 </span>
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+              <div className="font-mono" style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>
                 Engine Version: {ocrStatus.engine_version || '5.5.3'} • Languages:{' '}
                 {ocrStatus.supported_languages.join(', ')} • Selected:{' '}
                 {ocrStatus.selected_engine}
@@ -260,61 +232,46 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={() => navigate('system')}
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#38bdf8',
-              padding: '0.45rem 0.85rem',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className="btn btn-ghost"
+            style={{ fontSize: '0.8rem' }}
           >
-            Diagnostics View
+            <Activity size={14} color="#38bdf8" />
+            <span>Diagnostics</span>
           </button>
         </div>
       )}
 
-      {/* 9 Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+      {/* Bento Grid Stats Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.1rem' }}>
         {statCards.map((card, idx) => {
           const Icon = card.icon;
           return (
             <div
               key={idx}
-              className="glass-panel"
+              className="bento-card"
               onClick={card.onClick}
               style={{
-                padding: '1.25rem',
+                cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                cursor: 'pointer',
-                border: `1px solid ${card.border}`,
-                backgroundColor: card.bg,
-                transition: 'transform 0.2s, box-shadow 0.2s',
-              }}
-              onMouseOver={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
-              }}
-              onMouseOut={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                padding: '1.25rem',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1' }}>
+                <span className="font-mono" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {card.title}
                 </span>
                 <Icon size={18} color={card.color} />
               </div>
               <div
                 style={{
-                  fontSize: '2rem',
+                  fontSize: '2.1rem',
                   fontWeight: 800,
                   color: card.color,
-                  marginTop: '0.75rem',
-                  letterSpacing: '-0.02em',
+                  marginTop: '0.85rem',
+                  letterSpacing: '-0.03em',
+                  fontFamily: 'var(--font-display)',
                 }}
               >
                 {card.value}
@@ -327,24 +284,20 @@ export const Dashboard: React.FC = () => {
       {/* 2-Column Activity Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '1.5rem' }}>
         {/* Recent Ingested Documents */}
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>
-              Recent Ingested Documents
-            </h3>
+        <div className="bento-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                // RECENT INGESTION
+              </span>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
+                Document Ingestion Stream
+              </h3>
+            </div>
             <button
               onClick={() => navigate('upload')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#38bdf8',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
+              className="btn btn-ghost"
+              style={{ fontSize: '0.78rem', color: '#38bdf8' }}
             >
               <span>Ingest New</span>
               <ArrowUpRight size={14} />
@@ -356,7 +309,7 @@ export const Dashboard: React.FC = () => {
               No document uploads recorded yet.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {recentDocs.map((doc) => (
                 <div
                   key={doc.id}
@@ -366,17 +319,17 @@ export const Dashboard: React.FC = () => {
                     justifyContent: 'space-between',
                     padding: '0.75rem 1rem',
                     backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     border: '1px solid rgba(255, 255, 255, 0.05)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <FileText size={18} color="#38bdf8" />
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#f1f5f9' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.86rem', color: '#f1f5f9' }}>
                         {doc.file_name}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      <div className="font-mono" style={{ fontSize: '0.72rem', color: '#64748b' }}>
                         {doc.doc_type} • {(doc.file_size_bytes / 1024).toFixed(1)} KB
                       </div>
                     </div>
@@ -389,39 +342,36 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Action Required: Flagged Records */}
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>
-                Flagged Records Requiring Review
-              </h3>
-              <span
-                style={{
-                  fontSize: '0.7rem',
-                  background: 'rgba(244, 63, 94, 0.2)',
-                  color: '#fb7185',
-                  padding: '2px 8px',
-                  borderRadius: '9999px',
-                  fontWeight: 700,
-                }}
-              >
-                {flaggedRecords.length}
+        <div className="bento-card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
+            <div>
+              <span className="font-mono" style={{ fontSize: '0.7rem', color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                // DISCREPANCY AUDIT
               </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
+                  Flagged Records
+                </h3>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: '0.7rem',
+                    background: 'rgba(244, 63, 94, 0.2)',
+                    color: '#fb7185',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {flaggedRecords.length}
+                </span>
+              </div>
             </div>
 
             <button
               onClick={() => navigate('review')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#38bdf8',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
+              className="btn btn-ghost"
+              style={{ fontSize: '0.78rem', color: '#38bdf8' }}
             >
               <span>Review Workspace</span>
               <ArrowUpRight size={14} />
@@ -433,7 +383,7 @@ export const Dashboard: React.FC = () => {
               Zero flagged records currently pending. All records clear!
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {flaggedRecords.map((rec) => (
                 <div
                   key={rec.id}
@@ -443,24 +393,26 @@ export const Dashboard: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '0.75rem 1rem',
-                    backgroundColor: 'rgba(244, 63, 94, 0.05)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(244, 63, 94, 0.2)',
+                    backgroundColor: 'rgba(244, 63, 94, 0.04)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(244, 63, 94, 0.18)',
                     cursor: 'pointer',
-                    transition: 'background-color 0.2s',
+                    transition: 'all 0.18s ease',
                   }}
                   onMouseOver={(e) => {
-                    (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(244, 63, 94, 0.1)';
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(244, 63, 94, 0.08)';
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(244, 63, 94, 0.35)';
                   }}
                   onMouseOut={(e) => {
-                    (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(244, 63, 94, 0.05)';
+                    (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(244, 63, 94, 0.04)';
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(244, 63, 94, 0.18)';
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#f1f5f9' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.86rem', color: '#f1f5f9' }}>
                       Khasra {rec.khasra_number} • {rec.village}, {rec.district}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                    <div className="font-mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                       Owner: {rec.owner_name || 'Unspecified'} • {rec.area_in_hectares} ha
                     </div>
                   </div>

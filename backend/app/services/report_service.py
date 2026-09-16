@@ -415,6 +415,20 @@ class VerificationReportService:
         story.append(ext_table)
         story.append(Spacer(1, 6))
 
+        analysis = (extraction.structured_fields or {}).get('_document_analysis') if extraction else None
+        if analysis:
+            story.append(Paragraph('Document Quality and Authenticity Risk', self.section_heading))
+            for page in analysis.get('pages', []):
+                quality = page.get('quality') or {}
+                risk = page.get('authenticity') or {}
+                story.append(Paragraph(safe_text(
+                    f"Page {page['page']}: Quality {quality.get('quality_score', 'Not assessed')} / 100; "
+                    f"Authenticity risk: {risk.get('risk_level', 'Not assessed')}; "
+                    f"Action: {quality.get('recommended_action', 'Digital text extraction')}"), self.body_style))
+                for signal in risk.get('signals', []):
+                    story.append(Paragraph(safe_text(signal['explanation']), self.body_style))
+            story.append(Paragraph(safe_text('Manual verification required' if analysis.get('requires_manual_review') else 'No additional image-analysis review trigger'), self.body_bold))
+            story.append(Paragraph('Automated image analysis provides risk indicators and does not independently establish legal authenticity.', self.disclaimer_banner))
         # Optional AI Assistance Metadata Summary
         ai_meta = (extraction.structured_fields or {}).get("_ai_metadata") if extraction and extraction.structured_fields else None
         if ai_meta and ai_meta.get("ai_used"):

@@ -19,6 +19,17 @@ const MainLayout: React.FC = () => {
 
   const { isAuthenticated, isLoading } = useAuth();
   const { currentView } = useNavigation();
+  const sectionLabels: Record<string, string> = {
+    dashboard: '// 01 — DASHBOARD',
+    upload: '// 02 — DOCUMENT DIGITIZATION',
+    records: '// 03 — LAND RECORDS',
+    discrepancies: '// 04 — VALIDATION',
+    review: '// 05 — REVIEW',
+    'cadastral-map': '// 06 — CADASTRAL GIS',
+    audit: '// 07 — AUDIT TRAIL',
+    'record-detail': '// RECORD DOSSIER INTELLIGENCE',
+    system: '// 08 — SYSTEM DIAGNOSTICS',
+  };
 
   if (isLoading) {
     return (
@@ -94,6 +105,7 @@ const MainLayout: React.FC = () => {
       <div style={{ display: 'flex', flex: 1 }}>
         <Sidebar />
         <main
+          className="animate-page-enter"
           style={{
             flex: 1,
             padding: '2rem',
@@ -101,6 +113,7 @@ const MainLayout: React.FC = () => {
             maxHeight: 'calc(100vh - 70px)',
           }}
         >
+          <div className="technical-kicker" aria-hidden="true">{sectionLabels[currentView]}</div>
           {renderView()}
         </main>
       </div>

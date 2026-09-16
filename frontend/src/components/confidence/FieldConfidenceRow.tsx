@@ -20,8 +20,8 @@ export const FieldConfidenceRow: React.FC<FieldConfidenceRowProps> = ({
 }) => {
   const rawValue = evidence?.value ?? fallbackValue ?? '—';
   const normalizedValue = evidence?.normalized_value;
-  const confidence = evidence?.confidence ?? 1.0;
-  const category = evidence?.category ?? 'HIGH';
+  const confidence = evidence?.confidence ?? 0;
+  const category = evidence?.category ?? 'LOW';
   const isLow = category === 'LOW' || confidence < 0.60;
   const isWarning = isCritical && isLow;
 
@@ -141,6 +141,13 @@ export const FieldConfidenceRow: React.FC<FieldConfidenceRowProps> = ({
         )}
       </div>
 
+      <div className="evidence-note" style={{ gridColumn: '1 / -1' }}>
+        {evidence?.requires_review || !evidence ? 'Needs verification' : 'OCR evidence available'}
+        {' · '}{evidence?.source || 'No extraction evidence'}
+        {evidence?.supporting_passes?.length ? ` · ${evidence.supporting_passes.length} supporting pass(es)` : ''}
+        {evidence?.page_numbers?.length ? ` · Page ${evidence.page_numbers.join(', ')}` : ''}
+        {!!evidence?.alternatives?.length && <details><summary>Conflicting OCR readings</summary>{evidence.alternatives.map((a,i)=><p key={i}>{a.value} ({Math.round(a.confidence*100)}%)</p>)}</details>}
+      </div>
       {/* Visual Confidence Bar */}
       <div style={{ minWidth: '100px' }}>
         <ConfidenceBar score={confidence} height={6} showLabel={false} />

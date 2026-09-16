@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # Phase 5: OCR Engine & Confidence Thresholds
     OCR_ENGINE: str = "MOCK"  # "MOCK" or "TESSERACT"
     TESSERACT_CMD_PATH: Optional[str] = None
+    OCR_LANGUAGES: str = "eng+hin+tam"
+    OCR_TIMEOUT_SECONDS: int = 20
+    OCR_DOCUMENT_TIMEOUT_SECONDS: int = 120
+    OCR_MAX_PIXELS: int = 24_000_000
+    OCR_MAX_PAGES: int = 8
+    OCR_MAX_PASSES: int = 3
     CONFIDENCE_THRESHOLD_HIGH: float = 0.85
     CONFIDENCE_THRESHOLD_MEDIUM: float = 0.60
     CONFIDENCE_THRESHOLD_LOW: float = 0.60
@@ -51,6 +57,10 @@ class Settings(BaseSettings):
         self.AI_PROVIDER = self.AI_PROVIDER.strip().lower()
         if self.AI_TIMEOUT_SECONDS <= 0:
             raise ValueError("AI_TIMEOUT_SECONDS must be positive")
+        if not 1 <= self.OCR_MAX_PASSES <= 4 or not 1 <= self.OCR_MAX_PAGES <= 20:
+            raise ValueError('OCR pass/page limits must be bounded')
+        if min(self.OCR_MAX_PIXELS, self.OCR_TIMEOUT_SECONDS, self.OCR_DOCUMENT_TIMEOUT_SECONDS) <= 0:
+            raise ValueError('OCR analysis limits must be positive')
         if self.OCR_ENGINE not in {"MOCK", "TESSERACT"}:
             raise ValueError("OCR_ENGINE must be MOCK or TESSERACT")
         if self.APP_ENV.lower() not in {"development", "test", "testing"}:

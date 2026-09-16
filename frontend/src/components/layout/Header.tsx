@@ -78,7 +78,7 @@ export const Header: React.FC = () => {
                 color: '#ffffff',
               }}
             >
-              BHU-ABHILEKH AI
+              BHU-ABHILEKH
             </h1>
             <span
               style={{
@@ -96,7 +96,7 @@ export const Header: React.FC = () => {
             </span>
           </div>
           <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-            Land Record Digitization, OCR & Validation Gateway
+            Land record intelligence platform · OCR · validation · governance
           </p>
         </div>
       </div>

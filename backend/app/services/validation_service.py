@@ -2,7 +2,9 @@ import uuid
 from datetime import timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
+from app.models.extraction import ExtractionResultModel
+from app.schemas.validation import RuleValidationResult
 from app.core.logging import logger
 from app.schemas.validation import ValidationCheckResponse
 from app.services.validation.engine import ValidationEngine
@@ -37,6 +39,18 @@ class ValidationService:
         updating the LandRecordModel status to VALIDATED or FLAGGED.
         """
         evaluation = self.engine.evaluate_record(record_id, record_data)
+        current_record = await session.get(LandRecordModel, record_id)
+        if current_record and current_record.document_id:
+            extraction = (await session.execute(select(ExtractionResultModel).where(
+                ExtractionResultModel.document_id == current_record.document_id
+            ).order_by(desc(ExtractionResultModel.extracted_at)).limit(1))).scalar_one_or_none()
+            analysis = (extraction.structured_fields or {}).get('_document_analysis') if extraction else None
+            if analysis and analysis.get('requires_manual_review') and current_record.review_status != 'APPROVED':
+                evaluation.rule_results.append(RuleValidationResult(rule_name='DOCUMENT_ANALYSIS_REVIEW',
+                    passed=False, severity='WARNING', message='Manual verification required: ' + '; '.join(analysis['review_reasons'])))
+                evaluation.status = 'FLAGGED'
+                evaluation.is_valid = False
+                evaluation.discrepancy_summary = 'Document analysis requires human verification; no legal rejection is inferred.'
 
         # Create validation result record
         val_model = ValidationResultModel(

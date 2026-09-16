@@ -36,6 +36,8 @@ import { FieldConfidenceRow } from '../components/confidence/FieldConfidenceRow'
 import { CriticalConfidenceWarning } from '../components/confidence/CriticalConfidenceWarning';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Modal } from '../components/ui/Modal';
+import { DocumentAnalysis } from '../components/document/DocumentAnalysis';
+import { EnhancedPreview } from '../components/document/EnhancedPreview';
 
 type DetailTab = 'fields' | 'preview' | 'validation' | 'discrepancies' | 'review' | 'summary';
 
@@ -297,13 +299,13 @@ export const RecordDetail: React.FC = () => {
           </button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
+              <h2 className="font-mono" style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>
                 Khasra Parcel {record.khasra_number}
               </h2>
               <StatusBadge status={record.status} />
               <StatusBadge status={record.review_status} />
             </div>
-            <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+            <p className="font-mono" style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
               Khata: {record.khata_number} • Village: {record.village}, {record.tehsil}, {record.district} • ID: {record.id}
             </p>
           </div>
@@ -408,6 +410,8 @@ export const RecordDetail: React.FC = () => {
         lowFields={lowConfFields}
         onOpenReview={() => setActiveTab('review')}
       />
+      <DocumentAnalysis analysis={extraction?.analysis}/>
+      {record.document_id && extraction?.analysis && <EnhancedPreview documentId={record.document_id} pages={extraction.analysis.pages.filter(p=>p.quality!==null).map(p=>p.page)}/>}
 
       {/* Navigation Tabs */}
       <div

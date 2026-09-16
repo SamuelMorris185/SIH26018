@@ -5,10 +5,8 @@ Conservative Merge Policy Service (Deterministic Core vs. AI Assistance)
 
 from typing import Dict, Any, Tuple, Optional
 from app.core.logging import logger
-from app.core.config import settings
 from app.schemas.extraction import (
     FieldExtractionEvidence,
-    ConfidenceCategory,
     categorize_confidence,
 )
 from app.services.ai.schemas import (
@@ -59,7 +57,10 @@ class AIMergeService:
             updated_ai_result: AIInterpretationResult containing recorded conflicts
         """
         merged_fields = dict(deterministic_fields)
-        merged_evidences = dict(field_evidences or {})
+        merged_evidences = {
+            name: evidence.model_copy(deep=True)
+            for name, evidence in (field_evidences or {}).items()
+        }
 
         if not ai_result.ai_used or not ai_result.suggested_fields:
             return merged_fields, merged_evidences, ai_result
